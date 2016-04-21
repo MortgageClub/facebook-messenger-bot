@@ -23,7 +23,7 @@ const sessionIds = new Map();
 var welcome = "1100";
 var usage = "1101";
 var propertyType = "1102";
-
+var signupStr = "Do you want to apply for a mortgage now? (Yes/No)";
 // purpose types
 var btnPurposeTypes = [{
   "type": "postback",
@@ -102,6 +102,7 @@ function processEvent(event) {
           var rateData = JSON.parse(responseText);
           if (rateData.status_code == 200) {
             sendFBMessage(sender, sendGenericMessage(rateData.data));
+            sendFBMessage(sender, sendTextMessage(signupStr));
             return;
           } else {
             responseText = rateData.data;
