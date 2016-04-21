@@ -20,17 +20,9 @@ const apiAiService = apiai(APIAI_ACCESS_TOKEN, {
   language: APIAI_LANG
 });
 const sessionIds = new Map();
-var welcome = "Hello, I can help you get a rate quote in 10 secs. To get started, please let me know whether this is a purchase or refinance loan.";
-var zipcodeStr = "Great, what's your ZIP code?";
-var purchaseStr = "Awesome, how about purchase price?";
-var downpaymenStr = "Down payment?";
-var usageStr = "Excellent, is this a primary residence, vacation home, or investment property?";
-var usageRefinanceStr = "Excellent, is this a primary residence, vacation home, or rental property?";
-var propertyTypeStr = "Awesome, is this a single family home, duplex, triplex, fourplex, or condo?";
-var refinanceValueStr = "Awesome, how about estimated current value? (Hint: use Zillow estimate)";
-var mortgageBalanceStr = "Current mortgage balance?";
-var creditScoreStr = "Okay, last question, what's your credit score?";
-var creditScoreRefinanceStr = "What's your credit score?";
+var welcome = "1100";
+var usage = "1101";
+var propertyType = "1102";
 
 // purpose types
 var btnPurposeTypes = [{
@@ -72,24 +64,9 @@ var btnPropertyTypes = [{
   "payload": "condo"
 }];
 
-map.set(welcome, sendButtonMessage(welcome, btnPurposeTypes));
-map.set(zipcodeStr, sendTextMessage(zipcodeStr));
-map.set(propertyTypeStr, sendButtonMessage(propertyTypeStr, btnPropertyTypes));
-
-// purchase questions
-map.set(purchaseStr, sendTextMessage(purchaseStr));
-map.set(downpaymenStr, sendTextMessage(downpaymenStr));
-map.set(usageStr, sendButtonMessage(usageStr, btnUsage));
-map.set(creditScoreStr, sendTextMessage(creditScoreStr));
-
-// refinance questions
-map.set(refinanceValueStr, sendTextMessage(refinanceValueStr));
-map.set(mortgageBalanceStr, sendTextMessage(mortgageBalanceStr));
-map.set(usageRefinanceStr, sendButtonMessage(usageRefinanceStr, btnUsage));
-map.set(creditScoreRefinanceStr, sendTextMessage(creditScoreRefinanceStr));
-
-
-
+map.set(welcome, btnPurposeTypes);
+map.set(usage, btnUsage);
+map.set(propertyType, btnPropertyTypes);
 
 function processEvent(event) {
   var sender = event.sender.id;
@@ -131,15 +108,18 @@ function processEvent(event) {
           }
         }
         if (isDefined(responseText)) {
-          if(isDefined(map.get(responseText))){
-            sendFBMessage(sender, map.get(responseText));
+          var arr = responseText.split("|");
+          // console.log("Code :====== " + arr[0]);
+          // console.log("Mess :====== " + arr[1]);
+          if (isNaN(arr[0])) {
+            // console.log('This is not number');
+            sendFBMessage(sender, sendTextMessage(arr[0]));
             return;
           }else {
-            sendFBMessage(sender, responseText);
+            sendFBMessage(sender, sendButtonMessage(arr[1], map.get(arr[0])));
             return;
           }
         }
-
       }
     });
 
@@ -179,7 +159,7 @@ function sendGenericMessage(messages) {
       }
     }
   };
-  console.log(messages.length);
+  // console.log(messages.length);
   for (var i = 0; i < messages.length; i++) {
 
     var messageData = {
