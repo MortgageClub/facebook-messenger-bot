@@ -102,13 +102,14 @@ function processEvent(event) {
           var rateData = JSON.parse(responseText);
           if (rateData.status_code == 200) {
             sendFBMessage(sender, sendGenericMessage(rateData.data));
-            sendFBMessage(sender, sendTextMessage(signupStr));
-            return;
+            setTimeout(function() {
+               sendFBMessage(sender, sendTextMessage(signupStr));
+            }, 5000);
           } else {
             responseText = rateData.data;
           }
         }
-        if (isDefined(responseText)) {
+        else if (isDefined(responseText)) {
           var arr = responseText.split("|");
           // console.log("Code :====== " + arr[0]);
           // console.log("Mess :====== " + arr[1]);
