@@ -12,77 +12,26 @@ const APIAI_ACCESS_TOKEN = process.env.APIAI_ACCESS_TOKEN;
 const APIAI_LANG = process.env.APIAI_LANG || 'en';
 const FB_VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN;
 const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
+const HashMap = require('hashmap');
+
+var map = new HashMap();
 
 const apiAiService = apiai(APIAI_ACCESS_TOKEN, {
   language: APIAI_LANG
 });
 const sessionIds = new Map();
+var welcome = "Hello, I can help you get a rate quote in 10 secs. To get started, please let me know whether this is a purchase or refinance loan.";
+var zipcodeStr = "Great, what's your ZIP code?";
+var purchaseStr = "Awesome, how about purchase price?";
+var downpaymenStr = "Down payment?";
+var usageStr = "Excellent, is this a primary residence, vacation home, or investment property?";
+var usageRefinanceStr = "Excellent, is this a primary residence, vacation home, or rental property?";
+var propertyTypeStr = "Awesome, is this a single family home, duplex, triplex, fourplex, or condo?";
+var refinanceValueStr = "Awesome, how about estimated current value? (Hint: use Zillow estimate)";
+var mortgageBalanceStr = "Current mortgage balance?";
+var creditScoreStr = "Okay, last question, what's your credit score?";
+var creditScoreRefinanceStr = "What's your credit score?";
 
-function processEvent(event) {
-  var sender = event.sender.id;
-  var text = null;
-  if (event.message && event.message.text) {
-    text = event.message.text;
-  } else
-  if (event.postback && event.postback.payload) {
-    text = event.postback.payload
-  }
-  if (text) {
-    // Handle a text message from this sender
-
-    if (!sessionIds.has(sender)) {
-      sessionIds.set(sender, uuid.v1());
-    }
-
-    let apiaiRequest = apiAiService.textRequest(text, {
-      sessionId: sessionIds.get(sender)
-    });
-
-    apiaiRequest.on('response', (response) => {
-
-      if (isDefined(response.result)) {
-
-        let responseText = response.result.fulfillment.speech;
-        let source = response.result.fulfillment.source;
-        let action = response.result.action;
-
-        if (isDefined(responseText)) {
-          if (response.result.parameters.down_payment != "" && response.result.parameters.usage == "") {
-            sendFBMessage(sender, sendButtonMessage(responseText, btnProperties));
-            return;
-          } else
-          if (response.result.parameters.usage != "" && response.result.parameters.property_type == "") {
-            sendFBMessage(sender, sendButtonMessage(responseText, btnPropertyTypes));
-            return;
-          } else
-          if (action === "loan.purpose") {
-            sendFBMessage(sender, sendButtonMessage(responseText, btnPurposeTypes));
-            return;
-          } else
-          if (isDefined(source)) {
-            var rateData = JSON.parse(responseText);
-            if (rateData.status_code == 200) {
-              sendFBMessage(sender, sendGenericMessage(rateData.data));
-              return;
-            } else {
-              responseText = rateData.data;
-            }
-          }
-          sendFBMessage(sender, {
-            text: responseText
-          });
-
-        }
-
-      }
-    });
-
-    apiaiRequest.on('error', function(error) {
-      console.error(error);
-    });
-    apiaiRequest.end();
-  }
-}
 // purpose types
 var btnPurposeTypes = [{
   "type": "postback",
@@ -93,8 +42,8 @@ var btnPurposeTypes = [{
   "title": "Refinance",
   "payload": "refinance"
 }];
-//single family home, duplex, triplex, fourplex, or condo
-var btnProperties = [{
+/// usage
+var btnUsage = [{
   "type": "postback",
   "title": "Primary Residence",
   "payload": "primary_residence"
@@ -107,6 +56,7 @@ var btnProperties = [{
   "title": "Rental Property",
   "payload": "rental_property"
 }];
+//single family home, duplex, triplex, fourplex, or condo
 
 var btnPropertyTypes = [{
   "type": "postback",
@@ -121,6 +71,90 @@ var btnPropertyTypes = [{
   "title": "Condo/Townhouse",
   "payload": "condo"
 }];
+
+map.set(welcome, sendButtonMessage(welcome, btnPurposeTypes));
+map.set(zipcodeStr, sendTextMessage(zipcodeStr));
+map.set(propertyTypeStr, sendButtonMessage(propertyTypeStr, btnPropertyTypes));
+
+// purchase questions
+map.set(purchaseStr, sendTextMessage(purchaseStr));
+map.set(downpaymenStr, sendTextMessage(downpaymenStr));
+map.set(usageStr, sendButtonMessage(usageStr, btnUsage));
+map.set(creditScoreStr, sendTextMessage(creditScoreStr));
+
+// refinance questions
+map.set(refinanceValueStr, sendTextMessage(refinanceValueStr));
+map.set(mortgageBalanceStr, sendTextMessage(mortgageBalanceStr));
+map.set(usageRefinanceStr, sendButtonMessage(usageRefinanceStr, btnUsage));
+map.set(creditScoreRefinanceStr, sendTextMessage(creditScoreRefinanceStr));
+
+
+
+
+function processEvent(event) {
+  var sender = event.sender.id;
+  var text = null;
+  if (event.message && event.message.text) {
+    text = event.message.text;
+  } else
+  if (event.postback && event.postback.payload) {
+    text = event.postback.payload;
+  }
+  if (text) {
+    // Handle a text message from this sender
+    // console.log("Fb messages === " + text);
+    if (!sessionIds.has(sender)) {
+      sessionIds.set(sender, uuid.v1());
+    }
+
+    let apiaiRequest = apiAiService.textRequest(text, {
+      sessionId: sessionIds.get(sender)
+    });
+
+    apiaiRequest.on('response', (response) => {
+      // console.log("Response API AI ========== ");
+      // console.log(response);
+      if (isDefined(response.result)) {
+
+        let responseText = response.result.fulfillment.speech;
+        let source = response.result.fulfillment.source;
+        let action = response.result.action;
+
+        if (isDefined(source) && source === "MortgageClub") {
+          // console.log("Get rates !!!")
+          var rateData = JSON.parse(responseText);
+          if (rateData.status_code == 200) {
+            sendFBMessage(sender, sendGenericMessage(rateData.data));
+            return;
+          } else {
+            responseText = rateData.data;
+          }
+        }
+        if (isDefined(responseText)) {
+          if(isDefined(map.get(responseText))){
+            sendFBMessage(sender, map.get(responseText));
+            return;
+          }else {
+            sendFBMessage(sender, responseText);
+            return;
+          }
+        }
+
+      }
+    });
+
+    apiaiRequest.on('error', function(error) {
+      console.error(error);
+    });
+    apiaiRequest.end();
+  }
+}
+
+function sendTextMessage(textMessage) {
+  return {
+    text: textMessage
+  }
+}
 
 function sendButtonMessage(text, buttons) {
   return {

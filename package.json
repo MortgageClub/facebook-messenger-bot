@@ -12,10 +12,11 @@
   "dependencies": {
     "apiai": "2.0.0",
     "body-parser": "1.15.0",
+    "dotenv": "2.0.0",
     "express": "4.13.3",
+    "hashmap": "^2.0.5",
     "html-entities": "1.2.0",
     "node-uuid": "1.4.7",
-    "request": "2.71.0",
-    "dotenv": "2.0.0"
+    "request": "2.71.0"
   }
 }
