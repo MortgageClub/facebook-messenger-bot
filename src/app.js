@@ -91,7 +91,6 @@ function processEvent(event) {
     let apiaiRequest = apiAiService.textRequest(text, {
       sessionId: sessionIds.get(sender).sessionId
     });
-
     apiaiRequest.on('response', (response) => {
       // console.log("Response API AI ========== ");
       // console.log(response);
