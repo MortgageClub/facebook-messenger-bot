@@ -118,20 +118,11 @@ function processEvent(event) {
             sendFBMessage(sender, sendTextMessage(arr[0]));
             return;
           }else {
-
             if(arr[0] == welcome ){
-              setTimeout(function() {
-                if(sessionIds.get(sender)){
-                  arr[1] = arr[1].slice(0, 5) + " "+sessionIds.get(sender).context.profile.first_name + arr[1].slice(5);
-                  sendFBMessage(sender, sendButtonMessage(arr[1], map.get(arr[0])));
-                }
-              }, 2000);
-              return;
-            }else {
-              sendFBMessage(sender, sendButtonMessage(arr[1], map.get(arr[0])));
-              return;
+              arr[1] = arr[1].slice(0, 5) + " "+sessionIds.get(sender).context.profile.first_name + arr[1].slice(5);
             }
-
+            sendFBMessage(sender, sendButtonMessage(arr[1], map.get(arr[0])));
+            return;
           }
         }
       }
