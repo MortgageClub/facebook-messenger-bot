@@ -19,11 +19,12 @@ var map = new HashMap();
 const apiAiService = apiai(APIAI_ACCESS_TOKEN, {
   language: APIAI_LANG
 });
-const sessionIds = new Map();
+const sessionIds = new HashMap();
 var welcome = "1100";
 var usage = "1101";
 var propertyType = "1102";
 var signupStr = "Do you want to apply for a mortgage now? (Yes/No)";
+var waitingQuote = "I'm analyzing thousands of loan programs to find the best mortgage loans for you..."
 // purpose types
 var btnPurposeTypes = [{
   "type": "postback",
@@ -80,17 +81,19 @@ function processEvent(event) {
   if (text) {
     // Handle a text message from this sender
     // console.log("Fb messages === " + text);
-    if (!sessionIds.has(sender)) {
-      sessionIds.set(sender, uuid.v1());
+    if (!sessionIds.get(sender)) {
+      sessionIds.set(sender, { sessionId: uuid.v1(), context: { history: {}} } );
+      getUserProfile(sender);
     }
-
     let apiaiRequest = apiAiService.textRequest(text, {
-      sessionId: sessionIds.get(sender)
+      sessionId: sessionIds.get(sender).sessionId
     });
 
     apiaiRequest.on('response', (response) => {
       // console.log("Response API AI ========== ");
       // console.log(response);
+      sessionIds.get(sender).context.history.parameters = response.result.parameters;
+      sessionIds.get(sender).context.history.resolvedQuery = response.result.resolvedQuery;
       if (isDefined(response.result)) {
 
         let responseText = response.result.fulfillment.speech;
@@ -102,9 +105,6 @@ function processEvent(event) {
           var rateData = JSON.parse(responseText);
           if (rateData.status_code == 200) {
             sendFBMessage(sender, sendGenericMessage(rateData.data));
-            setTimeout(function() {
-               sendFBMessage(sender, sendTextMessage(signupStr));
-            }, 5000);
           } else {
             responseText = rateData.data;
           }
@@ -118,6 +118,9 @@ function processEvent(event) {
             sendFBMessage(sender, sendTextMessage(arr[0]));
             return;
           }else {
+            if(arr[0] == welcome ){
+              arr[1] = arr[1].slice(0, 5) + " "+sessionIds.get(sender).context.profile.first_name + arr[1].slice(5);
+            }
             sendFBMessage(sender, sendButtonMessage(arr[1], map.get(arr[0])));
             return;
           }
@@ -152,6 +155,7 @@ function sendButtonMessage(text, buttons) {
 }
 
 function sendGenericMessage(messages) {
+  // console.log(messages);
   var messagesData = {
     "attachment": {
       "type": "template",
@@ -161,7 +165,7 @@ function sendGenericMessage(messages) {
       }
     }
   };
-  // console.log(messages.length);
+  // console.log(" Length of Generic " + messages.length);
   for (var i = 0; i < messages.length; i++) {
 
     var messageData = {
@@ -246,7 +250,20 @@ app.get('/webhook/', function(req, res) {
     res.send('Error, wrong validation token');
   }
 });
-
+function getUserProfile(fbUserID){
+  request({
+      method: 'GET',
+      uri: "https://graph.facebook.com/v2.6/"+ fbUserID +"?fields=first_name,last_name,profile_pic&access_token=" + FB_PAGE_ACCESS_TOKEN
+    },
+    function(error, response, body) {
+      if (error) {
+        console.error('Error while getting user profile: ', error);
+      } else {
+        sessionIds.get(fbUserID).context.profile = JSON.parse(response.body);
+        console.log('user profile: ', response.body);
+      }
+    });
+}
 app.post('/webhook', function(req, res) {
   try {
     var messaging_events = req.body.entry[0].messaging;
