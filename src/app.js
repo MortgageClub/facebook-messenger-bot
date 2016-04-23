@@ -25,9 +25,11 @@ var welcome = "1100";
 var usage = "1101";
 var propertyType = "1102";
 var downpayment = "5000";
+var creditScoreCode = "5001";
 var signupStr = "Do you want to apply for a mortgage now? (Yes/No)";
 var waitingQuote = "I'm analyzing thousands of loan programs to find the best mortgage loans for you...";
 var percentErrorStr = "Sorry, down payment must be at least 3.5%. Please enter it again.";
+var creditScoreErrorStr = "Sorry, credit score must be between 620 and 850 (Hint: u can get your free credit score on CreditKarma).";
 // purpose types
 var btnPurposeTypes = [{
   "type": "postback",
@@ -85,21 +87,21 @@ function processEvent(event) {
     // Handle a text message from this sender
     if (!sessionIds.get(sender)) {
       var sessionId = uuid.v1();
-      sessionIds.set(sender, { sessionId: sessionId, ask_downpayment: false, timeout: Date.now() + defaultTimeout,  context: { conversation_id: sessionId, profile: {},  parameters: {}, resolved_queries: [] } } );
+      sessionIds.set(sender, { sessionId: sessionId, ask_credit: false, ask_downpayment: false, timeout: Date.now() + defaultTimeout,  context: { conversation_id: sessionId, profile: {},  parameters: {}, resolved_queries: [] } } );
       getUserProfile(sender);
     }
     sessionIds.get(sender).timeout = Date.now() + defaultTimeout;
     /// check % or number of downpayment
     if(sessionIds.get(sender).ask_downpayment && !sessionIds.get(sender).context.parameters.down_payment){
-      console.log("ask down_payment = true and down_payment param is null");
+      // console.log("ask down_payment = true and down_payment param is null");
       if(text.indexOf("%") > -1) {
-        console.log("content %");
+        // console.log("content %");
         var numberArr = text.split("%");
-        console.log(numberArr);
-        console.log("Is number " + isNaN(numberArr[0]));
+        // console.log(numberArr);
+        // console.log("Is number " + isNaN(numberArr[0]));
         if(!isNaN(numberArr[0])){
           var percent = parseFloat(numberArr[0], 10);
-          console.log("Parse float " + percent);
+          // console.log("Parse float " + percent);
 
           if (3.5 <= percent && percent <= 100) {
             percent = percent/100;
@@ -127,14 +129,23 @@ function processEvent(event) {
         }
       }
     }
-    console.log("Fb messages === " + text);
+    if(sessionIds.get(sender).ask_credit && !sessionIds.get(sender).context.parameters.credit_score){
+      if(!isNaN(text)){
+        var creditScore = parseFloat(text);
+        if(creditScore < 620 ||  creditScore > 850){
+          sendFBMessage(sender, sendTextMessage(creditScoreErrorStr));
+          return;
+        }
+      }
+    }
+    // console.log("Fb messages === " + text);
 
     let apiaiRequest = apiAiService.textRequest(text, {
       sessionId: sessionIds.get(sender).sessionId
     });
     apiaiRequest.on('response', (response) => {
-      console.log("Response API AI ========== ");
-      console.log(response);
+      // console.log("Response API AI ========== ");
+      // console.log(response);
 
       setUpTimeout(sender, sessionIds.get(sender).context);
       if (isDefined(response.result)) {
@@ -165,7 +176,7 @@ function processEvent(event) {
         else if (isDefined(responseText)) {
 
 
-          console.log(sessionIds.get(sender));
+          // console.log(sessionIds.get(sender));
           var arr = responseText.split("|");
           // console.log("Code :====== " + arr[0]);
           // console.log("Mess :====== " + arr[1]);
@@ -183,17 +194,24 @@ function processEvent(event) {
               }, 2000);
               return;
             }
-            else {
-              if (arr[0] == downpayment) {
-                sessionIds.get(sender).ask_downpayment = true;
-                sendFBMessage(sender, sendTextMessage(arr[1]));
-                return;
-              }else{
-                sendFBMessage(sender, sendButtonMessage(arr[1], map.get(arr[0])));
-                return;
-              }
 
+            if (arr[0] == downpayment) {
+              sessionIds.get(sender).ask_downpayment = true;
+              sendFBMessage(sender, sendTextMessage(arr[1]));
+              return;
             }
+
+            if (arr[0] == creditScoreCode) {
+              sessionIds.get(sender).ask_credit = true;
+              sendFBMessage(sender, sendTextMessage(arr[1]));
+              return;
+            }
+
+            sendFBMessage(sender, sendButtonMessage(arr[1], map.get(arr[0])));
+            return;
+
+
+
           }
         }
       }
@@ -224,6 +242,7 @@ function pushHistoryToServer(sender,context){
       } else {
         sessionIds.remove(sender);
         console.log('History push ok');
+        // console.log(context);
       }
     });
 }
