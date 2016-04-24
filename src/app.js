@@ -26,6 +26,7 @@ var usage = "1101";
 var propertyType = "1102";
 var downpayment = "5000";
 var creditScoreCode = "5001";
+var apiaiErrorCode = "9000";
 var signupStr = "Do you want to apply for a mortgage now? (Yes/No)";
 var waitingQuote = "I'm analyzing thousands of loan programs to find the best mortgage loans for you...";
 var percentErrorStr = "Sorry, down payment must be at least 3.5%. Please enter it again.";
@@ -129,6 +130,9 @@ function processEvent(event) {
         }
       }
     }
+    if(sessionIds.get(sender).ask_credit && sessionIds.get(sender).context.parameters.credit_score){
+      sessionIds.get(sender).ask_credit = false;
+    }
     if(sessionIds.get(sender).ask_credit && !sessionIds.get(sender).context.parameters.credit_score){
       if(!isNaN(text)){
         var creditScore = parseFloat(text);
@@ -203,6 +207,12 @@ function processEvent(event) {
 
             if (arr[0] == creditScoreCode) {
               sessionIds.get(sender).ask_credit = true;
+              sendFBMessage(sender, sendTextMessage(arr[1]));
+              return;
+            }
+
+            if (arr[0] == apiaiErrorCode) {
+              sessionIds.remove(sender);
               sendFBMessage(sender, sendTextMessage(arr[1]));
               return;
             }
