@@ -165,9 +165,10 @@ function processEvent(event) {
         });
         if (isDefined(source) && source === "MortgageClub") {
           // console.log("Get rates !!!")
-          sendFBMessage(sender, sendTextMessage(waitingQuote));
+
           var rateData = JSON.parse(responseText);
           if (rateData.status_code == 200) {
+            sendFBMessage(sender, sendTextMessage(waitingQuote));
             sendFBMessage(sender, sendGenericMessage(rateData.data));
             pushHistoryToServer(sender, sessionIds.get(sender).context);
             return;
