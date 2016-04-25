@@ -456,7 +456,7 @@ function getQuotes(sender, parameters){
         console.error('Error while getting quotes : ', error);
       } else {
         console.log('Get quotes ok');
-        // console.log(response.body.speech);
+        console.log(response.body);
         var rates = JSON.parse(response.body.speech);
         if(rates.status_code == 200 ){
           sendFBMessage(sender, sendGenericMessage(rates.data));
