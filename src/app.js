@@ -12,6 +12,8 @@ const APIAI_ACCESS_TOKEN = process.env.APIAI_ACCESS_TOKEN;
 const APIAI_LANG = process.env.APIAI_LANG || 'en';
 const FB_VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN;
 const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
+const FB_PAGE_ID = process.env.FB_PAGE_ID;
+
 const HashMap = require('hashmap');
 
 var map = new HashMap();
@@ -20,13 +22,13 @@ const apiAiService = apiai(APIAI_ACCESS_TOKEN, {
   language: APIAI_LANG
 });
 const sessionIds = new HashMap();
-const defaultTimeout = 30000; //miliseconds
+const defaultTimeout = 50000; //miliseconds
 var welcome = "1100";
 var usage = "1101";
 var propertyType = "1102";
 var downpayment = "5000";
 var creditScoreCode = "5001";
-var apiaiErrorCode = "9000";
+var endApiAiConversation = "9000";
 var signupStr = "Do you want to apply for a mortgage now? (Yes/No)";
 var waitingQuote = "I'm analyzing thousands of loan programs to find the best mortgage loans for you...";
 var percentErrorStr = "Sorry, down payment must be at least 3.5%. Please enter it again.";
@@ -108,12 +110,12 @@ function processEvent(event) {
           if (3.5 <= percent && percent <= 100) {
             percent = percent/100;
             var property_value = parseFloat(sessionIds.get(sender).context.parameters.property_value);
-            console.log("parse property_value " + property_value);
-            console.log("percent/ 100 ");
-            console.log(percent);
+            // console.log("parse property_value " + property_value);
+            // console.log("percent/ 100 ");
+            // console.log(percent);
             text = percent * property_value;
-            console.log("after calc");
-            console.log(text);
+            // console.log("after calc");
+            // console.log(text);
             sessionIds.get(sender).ask_downpayment = false;
           }
           else {
@@ -165,25 +167,23 @@ function processEvent(event) {
           "answer": response.result.resolvedQuery,
           "timestamp": response.timestamp
         });
-        if (isDefined(source) && source === "MortgageClub") {
-          // console.log("Get rates !!!")
-
-          var rateData = JSON.parse(responseText);
-          if (rateData.status_code == 200) {
-            sendFBMessage(sender, sendTextMessage(waitingQuote));
-            sendFBMessage(sender, sendGenericMessage(rateData.data));
-            pushHistoryToServer(sender, sessionIds.get(sender).context);
-            return;
-          } else {
-            sendFBMessage(sender, sendTextMessage(rateData.data));
-            pushHistoryToServer(sender, sessionIds.get(sender).context);
-            return;
-          }
-        }
-        else if (isDefined(responseText)) {
-
-
-
+        // if (isDefined(source) && source === "MortgageClub") {
+        //   // console.log("Get rates !!!")
+        //
+        //   var rateData = JSON.parse(responseText);
+        //   if (rateData.status_code == 200) {
+        //     sendFBMessage(sender, sendTextMessage(waitingQuote));
+        //     sendFBMessage(sender, sendGenericMessage(rateData.data));
+        //     pushHistoryToServer(sender, sessionIds.get(sender).context);
+        //     return;
+        //   } else {
+        //     sendFBMessage(sender, sendTextMessage(rateData.data));
+        //     pushHistoryToServer(sender, sessionIds.get(sender).context);
+        //     return;
+        //   }
+        // }
+        // else
+        if (isDefined(responseText)) {
           // console.log(sessionIds.get(sender));
           var arr = responseText.split("|");
           // console.log("Code :====== " + arr[0]);
@@ -216,9 +216,9 @@ function processEvent(event) {
               return;
             }
 
-            if (arr[0] == apiaiErrorCode) {
-              sessionIds.remove(sender);
+            if (arr[0] == endApiAiConversation) {
               sendFBMessage(sender, sendTextMessage(arr[1]));
+              getQuotes(sender, response.result);
               return;
             }
 
@@ -364,6 +364,32 @@ function doSubscribeRequest() {
     });
 }
 
+function configWelcomeScreen() {
+  var config = {
+    "setting_type":"call_to_actions",
+    "thread_state":"new_thread",
+    "call_to_actions":[
+      {
+        "message":{
+          "text":"Welcome to MortgageClub. Just say something to get started. I'm still in beta, so apologize in advance for the bugs. :)"
+        }
+      }
+    ]
+  };
+  request({
+      method: 'POST',
+      uri: "https://graph.facebook.com/v2.6/"+ FB_PAGE_ID  +"/thread_settings?access_token=" + FB_PAGE_ACCESS_TOKEN,
+      json: config
+    },
+    function(error, response, body) {
+      if (error) {
+        console.error('Error while config: ', error);
+      } else {
+        console.log('Conifg result: ', response.body);
+      }
+    });
+}
+
 function isDefined(obj) {
   if (typeof obj == 'undefined') {
     return false;
@@ -387,9 +413,10 @@ app.all('*', function(req, res, next) {
 app.get('/webhook/', function(req, res) {
   if (req.query['hub.verify_token'] == FB_VERIFY_TOKEN) {
     res.send(req.query['hub.challenge']);
-
+    // configWelcomeScreen();
     setTimeout(function() {
       doSubscribeRequest();
+      configWelcomeScreen();
     }, 3000);
   } else {
     res.send('Error, wrong validation token');
@@ -411,7 +438,39 @@ function getUserProfile(fbUserID){
       }
     });
 }
+function getQuotes(sender, parameters){
+  var url = process.env.RAILS_URL + "facebook_webhooks/receive";
+  // console.log("RAILS URL : " + url);
+  // console.log(context);
+  // console.log(parameters);
+  request({
+      method: 'POST',
+      uri: url,
+      json: parameters,
+      headers: {
+        "MORTGAGECLUB_FB": FB_VERIFY_TOKEN
+      }
+    },
+    function(error, response, body) {
+      if (error) {
+        console.error('Error while getting quotes : ', error);
+      } else {
+        console.log('Get quotes ok');
+        // console.log(response.body.speech);
+        var rates = JSON.parse(response.body.speech);
+        if(rates.status_code == 200 ){
+          sendFBMessage(sender, sendGenericMessage(rates.data));
+        }else {
+          sendFBMessage(sender, sendTextMessage(rates.data));
+        }
+        pushHistoryToServer(sender, sessionIds.get(sender).context);
+
+        // console.log(context);
+      }
+    });
+}
 app.post('/webhook', function(req, res) {
+  // console.log(req);
   try {
     var messaging_events = req.body.entry[0].messaging;
     for (var i = 0; i < messaging_events.length; i++) {
@@ -435,3 +494,4 @@ app.listen(REST_PORT, function() {
 });
 
 doSubscribeRequest();
+configWelcomeScreen();
