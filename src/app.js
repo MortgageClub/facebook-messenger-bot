@@ -345,8 +345,25 @@ function sendFBMessage(sender, messageData) {
 }
 
 function doSubscribeRequest() {
-  googleGeo.addressValidator("640 Gallant Fox Dr, Dallas, TX", function(data){
-    console.log(data);
+  googleGeo.addressValidator("2113 wendover ln, san jose", function(data){
+    addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
+    // console.log(data);
+  });
+  googleGeo.addressValidator("18531 ALLENDALE AVE Saratoga", function(data){
+    addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
+    // console.log(data);
+  });
+  googleGeo.addressValidator("41085 CANYON HEIGHTS DR FREMONT", function(data){
+    addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
+    // console.log(data);
+  });
+  googleGeo.addressValidator("4549 PACIFIC RIM WAY San Jose", function(data){
+    addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
+    // console.log(data);
+  });
+  googleGeo.addressValidator("6032 WHITEHAVEN CT, SAN JOSE", function(data){
+    addressQueue.set(Date.now(),{data: data, facebook_id: "456456456" });
+    // console.log(data);
   });
   request({
       method: 'POST',
@@ -475,8 +492,23 @@ app.post('/webhook', function(req, res) {
   }
 
 });
-app.get('/get-address', function(){
-
+app.get('/get-address', function(req, res){
+  var firstKey = addressQueue.keys()[0];
+  var firstQuete = addressQueue.get(firstKey);
+  if(utils.isDefined(firstQuete)){
+    googleGeo.formatAddressForScape(firstQuete.data.address_components, function(data){
+      addressQueue.remove(firstKey);
+      res.status(200).json({"timestamp": firstKey, "address": data, "facebook_id":firstQuete.facebook_id });
+    });
+    return;
+  }else {
+    res.status(404);
+    return;
+  }
+});
+app.post('/scape-address', function(req, res){
+  console.log(req);
+  console.log(req.body);
 });
 app.listen(REST_PORT, function() {
   console.log('Rest service ready on port ' + REST_PORT);
