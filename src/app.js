@@ -14,9 +14,14 @@ const FB_VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN;
 const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
 const FB_PAGE_ID = process.env.FB_PAGE_ID;
 
+//// custom module
+const utils = require('./utils.js');
+
+const googleGeo = require('./google_geo.js');
 const HashMap = require('hashmap');
 
 var map = new HashMap();
+var addressQueue = new HashMap();
 
 const apiAiService = apiai(APIAI_ACCESS_TOKEN, {
   language: APIAI_LANG
@@ -156,7 +161,7 @@ function processEvent(event) {
 
 
       setUpTimeout(sender, sessionIds.get(sender).context);
-      if (isDefined(response.result)) {
+      if (utils.isDefined(response.result)) {
 
         let responseText = response.result.fulfillment.speech;
         let source = response.result.fulfillment.source;
@@ -167,23 +172,8 @@ function processEvent(event) {
           "answer": response.result.resolvedQuery,
           "timestamp": response.timestamp
         });
-        // if (isDefined(source) && source === "MortgageClub") {
-        //   // console.log("Get rates !!!")
-        //
-        //   var rateData = JSON.parse(responseText);
-        //   if (rateData.status_code == 200) {
-        //     sendFBMessage(sender, sendTextMessage(waitingQuote));
-        //     sendFBMessage(sender, sendGenericMessage(rateData.data));
-        //     pushHistoryToServer(sender, sessionIds.get(sender).context);
-        //     return;
-        //   } else {
-        //     sendFBMessage(sender, sendTextMessage(rateData.data));
-        //     pushHistoryToServer(sender, sessionIds.get(sender).context);
-        //     return;
-        //   }
-        // }
-        // else
-        if (isDefined(responseText)) {
+
+        if (utils.isDefined(responseText)) {
           // console.log(sessionIds.get(sender));
           var arr = responseText.split("|");
           // console.log("Code :====== " + arr[0]);
@@ -238,6 +228,7 @@ function processEvent(event) {
     apiaiRequest.end();
   }
 }
+
 function pushHistoryToServer(sender,context){
   var url = process.env.RAILS_URL + "facebook_webhooks/save_data";
   // console.log("RAILS URL : " + url);
@@ -261,6 +252,7 @@ function pushHistoryToServer(sender,context){
       }
     });
 }
+
 function sendTextMessage(textMessage) {
   return {
     text: textMessage
@@ -308,6 +300,7 @@ function sendGenericMessage(messages) {
   }
   return messagesData;
 }
+
 function setUpTimeout(sender, context){
   var setTimeoutVar = Date.now();
   // console.log("Settimeout : " + setTimeoutVar);
@@ -327,6 +320,7 @@ function setUpTimeout(sender, context){
     }
   }, defaultTimeout);
 }
+
 function sendFBMessage(sender, messageData) {
 
   request({
@@ -351,6 +345,9 @@ function sendFBMessage(sender, messageData) {
 }
 
 function doSubscribeRequest() {
+  googleGeo.addressValidator("640 Gallant Fox Dr, Dallas, TX", function(data){
+    console.log(data);
+  });
   request({
       method: 'POST',
       uri: "https://graph.facebook.com/v2.6/me/subscribed_apps?access_token=" + FB_PAGE_ACCESS_TOKEN
@@ -390,17 +387,7 @@ function configWelcomeScreen() {
     });
 }
 
-function isDefined(obj) {
-  if (typeof obj == 'undefined') {
-    return false;
-  }
 
-  if (!obj) {
-    return false;
-  }
-
-  return obj != null;
-}
 
 const app = express();
 app.use(bodyParser.json());
@@ -488,7 +475,9 @@ app.post('/webhook', function(req, res) {
   }
 
 });
+app.get('/get-address', function(){
 
+});
 app.listen(REST_PORT, function() {
   console.log('Rest service ready on port ' + REST_PORT);
 });
