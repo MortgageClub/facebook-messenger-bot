@@ -5,82 +5,58 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const uuid = require('node-uuid');
 const request = require('request');
+
+// config env
 require('dotenv').config();
 
+// PORT
 const REST_PORT = (process.env.PORT || 5000);
+
+//API AI TOKEN
 const APIAI_ACCESS_TOKEN = process.env.APIAI_ACCESS_TOKEN;
+// Lang for Api Ai
 const APIAI_LANG = process.env.APIAI_LANG || 'en';
+//facebook verify token
 const FB_VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN;
+//Page access token
 const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
+// fb page ID
 const FB_PAGE_ID = process.env.FB_PAGE_ID;
 
 //// custom module
 const utils = require('./utils.js');
+const API_AI_CODE = require('./api_ai_code.js');
+const FB_BTN = require('./fb_btn.js');
 
+//connect to google geo for checking address
 const googleGeo = require('./google_geo.js');
 const HashMap = require('hashmap');
-
+// store btn
 var map = new HashMap();
+
+// address queue to store address when users input (take 30s per request)
 var addressQueue = new HashMap();
 
 const apiAiService = apiai(APIAI_ACCESS_TOKEN, {
   language: APIAI_LANG
 });
+// store Session IDs with Facebook id
 const sessionIds = new HashMap();
+// default timeout for chat. After timeout, app will push history to Rails server and destroy Session
 const defaultTimeout = 50000; //miliseconds
-var welcome = "1100";
-var usage = "1101";
-var propertyType = "1102";
-var downpayment = "5000";
-var creditScoreCode = "5001";
-var endApiAiConversation = "9000";
+
+// message
 var signupStr = "Do you want to apply for a mortgage now? (Yes/No)";
 var waitingQuote = "I'm analyzing thousands of loan programs to find the best mortgage loans for you...";
+var waitingAddress = "I'm checking your address...";
+
 var percentErrorStr = "Sorry, down payment must be at least 3.5%. Please enter it again.";
 var creditScoreErrorStr = "Sorry, credit score must be between 620 and 850 (Hint: u can get your free credit score on CreditKarma).";
-// purpose types
-var btnPurposeTypes = [{
-  "type": "postback",
-  "title": "Purchase",
-  "payload": "purchase"
-}, {
-  "type": "postback",
-  "title": "Refinance",
-  "payload": "refinance"
-}];
-/// usage
-var btnUsage = [{
-  "type": "postback",
-  "title": "Primary Residence",
-  "payload": "primary_residence"
-}, {
-  "type": "postback",
-  "title": "Vacation Home",
-  "payload": "vacation_home"
-}, {
-  "type": "postback",
-  "title": "Rental Property",
-  "payload": "rental_property"
-}];
-//single family home, duplex, triplex, fourplex, or condo
+var addressStr = "Sorry, Your address is not exist. Please try again !";
 
-var btnPropertyTypes = [{
-  "type": "postback",
-  "title": "Single Family Home",
-  "payload": "sfh"
-}, {
-  "type": "postback",
-  "title": "Multi-Family",
-  "payload": "multi_family"
-}, {
-  "type": "postback",
-  "title": "Condo/Townhouse",
-  "payload": "condo"
-}];
-
-map.set(welcome, btnPurposeTypes);
-map.set(usage, btnUsage);
-map.set(propertyType, btnPropertyTypes);
+map.set(API_AI_CODE.welcome, FB_BTN.btnPurposeTypes);
+map.set(API_AI_CODE.usage, FB_BTN.btnUsage);
+map.set(API_AI_CODE.propertyType, FB_BTN.btnPropertyTypes);
 
 function processEvent(event) {
   var sender = event.sender.id;
@@ -92,7 +68,7 @@ function processEvent(event) {
     text = event.postback.payload;
   }
   if (text) {
-    // Handle a text message from this sender
+    // Handle a text message from this sender - before sending to Api ai
 
     if (!sessionIds.get(sender)) {
       var sessionId = uuid.v1();
@@ -159,7 +135,6 @@ function processEvent(event) {
       // console.log("Response API AI ========== ");
       // console.log(response);
 
-
       setUpTimeout(sender, sessionIds.get(sender).context);
       if (utils.isDefined(response.result)) {
 
@@ -180,10 +155,26 @@ function processEvent(event) {
           // console.log("Mess :====== " + arr[1]);
           if (isNaN(arr[0])) {
             // console.log('This is not number');
-            sendFBMessage(sender, sendTextMessage(arr[0]));
-            return;
+            if(utils.isDefined(response.result.parameters.mortgage_advisor) && response.result.parameters.mortgage_advisor == 1){
+              googleGeo.addressValidator(response.result.parameters.address, function(data){
+                if(utils.isDefined(data)){
+                  // console.log("address after validator");
+                  // console.log(data);
+                  addressQueue.set(Date.now(),{data: data, facebook_id: sender });
+                  sendFBMessage(sender, sendTextMessage(waitingAddress));
+                  // console.log(addressQueue);
+                  return;
+                }else {
+                  sendFBMessage(sender, sendTextMessage(addressStr));
+                  return;
+                }
+              });
+            }else {
+              sendFBMessage(sender, sendTextMessage(arr[0]));
+              return;
+            }
           }else {
-            if(arr[0] == welcome ){
+            if(arr[0] == API_AI_CODE.welcome ){
 
               setTimeout(function() {
                 if(sessionIds.get(sender)){
@@ -194,19 +185,19 @@ function processEvent(event) {
               return;
             }
 
-            if (arr[0] == downpayment) {
+            if (arr[0] == API_AI_CODE.downpayment) {
               sessionIds.get(sender).ask_downpayment = true;
               sendFBMessage(sender, sendTextMessage(arr[1]));
               return;
             }
 
-            if (arr[0] == creditScoreCode) {
+            if (arr[0] == API_AI_CODE.creditScoreCode) {
               sessionIds.get(sender).ask_credit = true;
               sendFBMessage(sender, sendTextMessage(arr[1]));
               return;
             }
 
-            if (arr[0] == endApiAiConversation) {
+            if (arr[0] == API_AI_CODE.endApiAiConversation) {
               sendFBMessage(sender, sendTextMessage(arr[1]));
               getQuotes(sender, response.result);
               return;
@@ -345,26 +336,26 @@ function sendFBMessage(sender, messageData) {
 }
 
 function doSubscribeRequest() {
-  googleGeo.addressValidator("2113 wendover ln, san jose", function(data){
-    addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-    // console.log(data);
-  });
-  googleGeo.addressValidator("18531 ALLENDALE AVE Saratoga", function(data){
-    addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-    // console.log(data);
-  });
-  googleGeo.addressValidator("41085 CANYON HEIGHTS DR FREMONT", function(data){
-    addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-    // console.log(data);
-  });
-  googleGeo.addressValidator("4549 PACIFIC RIM WAY San Jose", function(data){
-    addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-    // console.log(data);
-  });
-  googleGeo.addressValidator("6032 WHITEHAVEN CT, SAN JOSE", function(data){
-    addressQueue.set(Date.now(),{data: data, facebook_id: "456456456" });
-    // console.log(data);
-  });
+  // googleGeo.addressValidator("2113 wendover ln, san jose", function(data){
+  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
+  //   // console.log(data);
+  // });
+  // googleGeo.addressValidator("18531 ALLENDALE AVE Saratoga", function(data){
+  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
+  //   // console.log(data);
+  // });
+  // googleGeo.addressValidator("41085 CANYON HEIGHTS DR FREMONT", function(data){
+  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
+  //   // console.log(data);
+  // });
+  // googleGeo.addressValidator("4549 PACIFIC RIM WAY San Jose", function(data){
+  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
+  //   // console.log(data);
+  // });
+  // googleGeo.addressValidator("6032 WHITEHAVEN CT, SAN JOSE", function(data){
+  //   addressQueue.set(Date.now(),{data: data, facebook_id: "456456456" });
+  //   // console.log(data);
+  // });
   request({
       method: 'POST',
       uri: "https://graph.facebook.com/v2.6/me/subscribed_apps?access_token=" + FB_PAGE_ACCESS_TOKEN
@@ -403,8 +394,6 @@ function configWelcomeScreen() {
       }
     });
 }
-
-
 
 const app = express();
 app.use(bodyParser.json());
@@ -468,11 +457,44 @@ function getQuotes(sender, parameters){
           sendFBMessage(sender, sendTextMessage(rates.data));
         }
         pushHistoryToServer(sender, sessionIds.get(sender).context);
+        return;
+        // console.log(context);
+      }
+    });
+}
+
+function getRefinance(sender, data){
+  var url = process.env.RAILS_URL + "facebook_webhooks/refinance";
+  // console.log("RAILS URL : " + url);
+  // console.log(context);
+  // console.log(parameters);
+  request({
+      method: 'POST',
+      uri: url,
+      json: data,
+      headers: {
+        "MORTGAGECLUB_FB": FB_VERIFY_TOKEN
+      }
+    },
+    function(error, response, body) {
+      if (error) {
+        console.error('Error while getting refinance : ', error);
+      } else {
+        console.log('Get refinance ok');
+        console.log(response.body);
+        // var rates = JSON.parse(response.body.speech);
+        // if(rates.status_code == 200 ){
+        //   sendFBMessage(sender, sendGenericMessage(rates.data));
+        // }else {
+        //   sendFBMessage(sender, sendTextMessage(rates.data));
+        // }
+        // pushHistoryToServer(sender, sessionIds.get(sender).context);
 
         // console.log(context);
       }
     });
 }
+
 app.post('/webhook', function(req, res) {
   // console.log(req);
   try {
@@ -493,22 +515,51 @@ app.post('/webhook', function(req, res) {
 
 });
 app.get('/get-address', function(req, res){
+  if(addressQueue.count() === 0){
+    console.log("count = 0");
+    res.status(404).json("Has no record");
+    return;
+  }
   var firstKey = addressQueue.keys()[0];
-  var firstQuete = addressQueue.get(firstKey);
-  if(utils.isDefined(firstQuete)){
-    googleGeo.formatAddressForScape(firstQuete.data.address_components, function(data){
+  var firstQueue = addressQueue.get(firstKey);
+  console.log("count before remove");
+  console.log(addressQueue.count());
+  if(utils.isDefined(firstQueue)){
+    googleGeo.formatAddressForScape(firstQueue.data.address_components, function(data){
       addressQueue.remove(firstKey);
-      res.status(200).json({"timestamp": firstKey, "address": data, "facebook_id":firstQuete.facebook_id });
+      console.log("count after remove");
+      console.log(addressQueue.count());
+      res.status(200).json({"timestamp": firstKey, "address": data.address, "facebook_id":firstQueue.facebook_id, zipcode: data.zipcode });
     });
     return;
   }else {
-    res.status(404);
+    res.status(404).json("Has no record");
     return;
   }
 });
 app.post('/scape-address', function(req, res){
-  console.log(req);
-  console.log(req.body);
+  // var data = {
+  //   "facebook_id": 123,
+  //   "timestamp" : 123124124,
+  //   "address": "6 World Way, Los Angeles, CA 90045",
+  //   "owner_name": "Tang NV",
+  //   "owner_name2": "Tang NV 3D",
+  //   "mortgage_histories": [{
+  //     "mortgage_date": "12/02/2010",
+  //     "mortgage_amount": 500000,
+  //     "mortgage_lender": "James Nguyen",
+  //     "mortgage_code": "123",
+  //     "mortgage_type": "house"
+  //   }]
+  // };
+
+  if(utils.isDefined(req.body.error)){
+    console.log("error from ui path");
+  }else {
+    console.log("receive scape address data");
+    console.log(req.body);
+    getRefinance(req.body.facebook_id, req.body);
+  }
 });
 app.listen(REST_PORT, function() {
   console.log('Rest service ready on port ' + REST_PORT);

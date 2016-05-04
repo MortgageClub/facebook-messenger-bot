@@ -5,8 +5,8 @@ var exports = module.exports = {};
 // Address jQuery Validator
 exports.addressValidator = function(addressStr, callback) {
   var token = process.env.GOOGLE_GEO_TOKEN;
-  // console.log("RAILS URL : " + url);
-  // console.log(context);
+  // console.log("Address string ");
+  // console.log(addressStr);
   if(utils.isDefined(addressStr)) {
     var url = "https://maps.googleapis.com/maps/api/geocode/json?address=" + addressStr + "&key=" + token;
     request({
@@ -26,7 +26,7 @@ exports.addressValidator = function(addressStr, callback) {
             //   console.log("each entry");
             //   console.log(entry);
             // });
-
+            // console.log(addressData.results[0]);
             callback(addressData.results[0]);
             return;
           }
@@ -39,7 +39,17 @@ exports.addressValidator = function(addressStr, callback) {
   }
 
 };
-
+exports.getPostalCode = function(address_components, callback){
+  var postalCode = null;
+  // console.log(address);
+  address_components.forEach(function(entry) {
+      if(entry.types[0] == "postal_code"){
+        postalCode = entry.short_name;
+        return;
+      }
+  });
+  callback(postalCode);
+};
 exports.formatAddressForScape = function(address_components, callback){
   var route = "";
   var street_number = "";
@@ -47,11 +57,14 @@ exports.formatAddressForScape = function(address_components, callback){
   // var state = "";
   var address = "";
   address = street_number + " " + route + " " + city;
-  // console.log("before address=========");
+  var postalCode = null;
 
-  // console.log(address);
   address_components.forEach(function(entry) {
       console.log(entry);
+      if(entry.types[0] == "postal_code"){
+        postalCode = entry.short_name;
+        return;
+      }
       if(entry.types[0] == "street_number"){
         street_number = entry.short_name;
         return;
@@ -86,5 +99,5 @@ exports.formatAddressForScape = function(address_components, callback){
   console.log("after address=========");
 
   console.log(address);
-  callback(address);
+  callback({"address": address, "zipcode": postalCode});
 };
