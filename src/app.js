@@ -529,6 +529,7 @@ app.get('/get-address', function(req, res){
       addressQueue.remove(firstKey);
       console.log("count after remove");
       console.log(addressQueue.count());
+      
       res.status(200).json({"timestamp": firstKey, "address": data.address, "facebook_id":firstQueue.facebook_id, zipcode: data.zipcode });
     });
     return;
@@ -553,7 +554,7 @@ app.post('/scape-address', function(req, res){
   //   }]
   // };
 
-  if(utils.isDefined(req.body.error)){
+  if(utils.isDefined(req.body.error) && utils.isDefined(req.body.facebook_id)){
     console.log("error from ui path");
   }else {
     console.log("receive scape address data");
