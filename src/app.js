@@ -482,15 +482,14 @@ function getRefinance(sender, data){
       } else {
         console.log('Get refinance ok');
         console.log(response.body);
-        // var rates = JSON.parse(response.body.speech);
-        // if(rates.status_code == 200 ){
-        //   sendFBMessage(sender, sendGenericMessage(rates.data));
-        // }else {
-        //   sendFBMessage(sender, sendTextMessage(rates.data));
-        // }
-        // pushHistoryToServer(sender, sessionIds.get(sender).context);
-
-        // console.log(context);
+        var rates = JSON.parse(response.body.speech);
+        if(rates.status_code == 200 ){
+          sendFBMessage(sender, sendTextMessage("New interest rate" + rates.lower_rate_refinance.new_interest_rate + " New monthly payment: " + rates.lower_rate_refinance.new_monthly_payment ));
+        }else {
+          sendFBMessage(sender, sendTextMessage("Have something wrong. Please try again!"));
+        }
+        pushHistoryToServer(sender, sessionIds.get(sender).context);
+        return;
       }
     });
 }
@@ -529,7 +528,7 @@ app.get('/get-address', function(req, res){
       addressQueue.remove(firstKey);
       console.log("count after remove");
       console.log(addressQueue.count());
-      
+
       res.status(200).json({"timestamp": firstKey, "address": data.address, "facebook_id":firstQueue.facebook_id, zipcode: data.zipcode });
     });
     return;
