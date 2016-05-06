@@ -6,7 +6,7 @@ const RAILS_URL = process.env.RAILS_URL;
 const FB_VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN;
 
 
-function getQuotes(sender, parameters){
+function getQuotes(sender, parameters, callback){
   var url = RAILS_URL + "facebook_webhooks/receive";
   request({
       method: 'POST',
@@ -19,6 +19,8 @@ function getQuotes(sender, parameters){
     function(error, response, body) {
       if (error) {
         console.error('Error while getting quotes : ', error);
+        callback(error);
+        return;
       } else {
         console.log('Get quotes ok');
         console.log(response.body);
@@ -28,14 +30,14 @@ function getQuotes(sender, parameters){
         }else {
           fbServices.sendFBMessage(sender, fbServices.textMessage(rates.data));
         }
-        // pushHistoryToServer(sender, sessionIds.get(sender).context);
+        callback(null);
         return;
         // console.log(context);
       }
     });
 }
 
-function getRefinance(sender, data){
+function getRefinance(sender, data, callback){
   var url = RAILS_URL + "facebook_webhooks/refinance";
   // console.log("RAILS URL : " + url);
   // console.log(context);
@@ -51,6 +53,8 @@ function getRefinance(sender, data){
     function(error, response, body) {
       if (error) {
         console.error('Error while getting refinance : ', error);
+        callback(error);
+        return;
       } else {
         console.log('Get refinance ok');
         console.log(response.body);
@@ -71,39 +75,14 @@ function getRefinance(sender, data){
             fbServices.sendFBMessage(sender, fbServices.textMessage("Have something wrong. Please try again!"));
           }
         }
-
-        // pushHistoryToServer(sender, sessionIds.get(sender).context);
+        callback(null);
         return;
       }
     });
 }
 
-function pushHistoryToServer(sender,context){
-  var url = RAILS_URL + "facebook_webhooks/save_data";
-  // console.log("RAILS URL : " + url);
-  // console.log(context);
-
-  request({
-      method: 'POST',
-      uri: url,
-      json: context,
-      headers: {
-        "MORTGAGECLUB_FB": FB_VERIFY_TOKEN
-      }
-    },
-    function(error, response, body) {
-      if (error) {
-        console.error('Error while pushing history : ', error);
-      } else {
-        sessionIds.remove(sender);
-        console.log('History push ok');
-        // console.log(context);
-      }
-    });
-}
 
 module.exports = {
   getRefinance: getRefinance,
-  getQuotes: getQuotes,
-  pushHistoryToServer: pushHistoryToServer
+  getQuotes: getQuotes
 };

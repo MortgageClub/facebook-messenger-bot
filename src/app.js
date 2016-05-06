@@ -18,6 +18,7 @@ const APIAI_ACCESS_TOKEN = process.env.APIAI_ACCESS_TOKEN;
 const APIAI_LANG = process.env.APIAI_LANG || 'en';
 //facebook verify token
 const FB_VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN;
+const RAILS_URL = process.env.RAILS_URL;
 
 
 //// custom module
@@ -217,7 +218,11 @@ function processEvent(event) {
 
             if (arr[0] == API_AI_CODE.endApiAiConversation) {
               fbServices.sendFBMessage(sender, fbServices.textMessage(arr[1]));
-              mcServices.getQuotes(sender, response.result);
+              mcServices.getQuotes(sender, response.result, function(err){
+                if(err){
+                  console.log("err when get quotes");
+                }
+              });
               return;
             }
 
@@ -253,7 +258,7 @@ function setUpTimeout(sender, context) {
       if ((Date.now() - sessionIds.get(sender).timeout) >= 0) {
         // console.log("Timeout push ===============");
         // console.log(context);
-        // pushHistoryToServer(sender, context);
+        pushHistoryToServer(sender, context);
         // console.log("after remove ");
         // console.log(sessionIds.get(sender));
       }
@@ -261,11 +266,26 @@ function setUpTimeout(sender, context) {
   }, defaultTimeout);
 }
 
-
-
-
-
-
+function pushHistoryToServer(sender,context){
+  var url = RAILS_URL + "facebook_webhooks/save_data";
+  request({
+      method: 'POST',
+      uri: url,
+      json: context,
+      headers: {
+        "MORTGAGECLUB_FB": FB_VERIFY_TOKEN
+      }
+    },
+    function(error, response, body) {
+      if (error) {
+        console.error('Error while pushing history : ', error);
+      } else {
+        sessionIds.remove(sender);
+        console.log('History push ok');
+        // console.log(context);
+      }
+    });
+}
 
 const app = express();
 app.use(bodyParser.json());
@@ -346,7 +366,11 @@ app.post('/scape-address', function(req, res) {
   } else {
     console.log("receive scape address data");
     console.log(req.body);
-    mcServices.getRefinance(req.body.facebook_id, req.body);
+    mcServices.getRefinance(req.body.facebook_id, req.body, function(err){
+      if(err){
+        console.log("has error when get refinance");
+      }
+    });
   }
 });
 app.listen(REST_PORT, function() {
