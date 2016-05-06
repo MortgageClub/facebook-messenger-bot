@@ -26,12 +26,11 @@ const API_AI_CODE = require('./api_ai_code.js');
 const FB_BTN = require('./fb_btn.js');
 var fbServices = require('./fb_services.js');
 
-
 //connect to google geo for checking address
 const googleGeo = require('./google_geo.js');
 const HashMap = require('hashmap');
 // store btn
-var map = new HashMap();
+var mapFbBtn = new HashMap();
 
 // address queue to store address when users input (take 30s per request)
 var addressQueue = new HashMap();
@@ -53,9 +52,9 @@ var percentErrorStr = "Sorry, down payment must be at least 3.5%. Please enter i
 var creditScoreErrorStr = "Sorry, credit score must be between 620 and 850 (Hint: u can get your free credit score on CreditKarma).";
 var addressStr = "Sorry, Your address is not exist. Please try again !";
 
-map.set(API_AI_CODE.welcome, FB_BTN.btnPurposeTypes);
-map.set(API_AI_CODE.usage, FB_BTN.btnUsage);
-map.set(API_AI_CODE.propertyType, FB_BTN.btnPropertyTypes);
+mapFbBtn.set(API_AI_CODE.welcome, FB_BTN.btnPurposeTypes);
+mapFbBtn.set(API_AI_CODE.usage, FB_BTN.btnUsage);
+mapFbBtn.set(API_AI_CODE.propertyType, FB_BTN.btnPropertyTypes);
 
 function processEvent(event) {
   var sender = event.sender.id;
@@ -191,7 +190,7 @@ function processEvent(event) {
               setTimeout(function() {
                 if (sessionIds.get(sender)) {
                   arr[1] = arr[1].slice(0, 5) + " " + sessionIds.get(sender).context.profile.first_name + arr[1].slice(5);
-                  fbServices.sendFBMessage(sender, fbServices.buttonMessage(arr[1], map.get(arr[0])));
+                  fbServices.sendFBMessage(sender, fbServices.buttonMessage(arr[1], mapFbBtn.get(arr[0])));
                 }
               }, 2000);
               return;
@@ -215,7 +214,7 @@ function processEvent(event) {
               return;
             }
 
-            fbServices.sendFBMessage(sender, fbServices.buttonMessage(arr[1], map.get(arr[0])));
+            fbServices.sendFBMessage(sender, fbServices.buttonMessage(arr[1], mapFbBtn.get(arr[0])));
             return;
 
 
