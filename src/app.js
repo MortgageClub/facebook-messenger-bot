@@ -42,7 +42,7 @@ const apiAiService = apiai(APIAI_ACCESS_TOKEN, {
 // store Session IDs with Facebook id
 const sessionIds = new HashMap();
 // default timeout for chat. After timeout, app will push history to Rails server and destroy Session
-const defaultTimeout = 50000; //miliseconds
+const defaultTimeout = process.env.DEFAULT_TIMEOUT; //miliseconds
 
 // message
 var signupStr = "Do you want to apply for a mortgage now? (Yes/No)";
@@ -247,7 +247,7 @@ function setUpTimeout(sender, context) {
       if ((Date.now() - sessionIds.get(sender).timeout) >= 0) {
         // console.log("Timeout push ===============");
         // console.log(context);
-        pushHistoryToServer(sender, context);
+        // pushHistoryToServer(sender, context);
         // console.log("after remove ");
         // console.log(sessionIds.get(sender));
       }
