@@ -23,7 +23,6 @@ var btnUsage = [{
   "payload": "rental_property"
 }];
 //single family home, duplex, triplex, fourplex, or condo
-
 var btnPropertyTypes = [{
   "type": "postback",
   "title": "Single Family Home",

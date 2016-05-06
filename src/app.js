@@ -72,24 +72,35 @@ function processEvent(event) {
 
     if (!sessionIds.get(sender)) {
       var sessionId = uuid.v1();
-      sessionIds.set(sender, { sessionId: sessionId, ask_credit: false, ask_downpayment: false, timeout: Date.now() + defaultTimeout,  context: { conversation_id: sessionId, profile: {},  parameters: {}, resolved_queries: [] } } );
+      sessionIds.set(sender, {
+        sessionId: sessionId,
+        ask_credit: false,
+        ask_downpayment: false,
+        timeout: Date.now() + defaultTimeout,
+        context: {
+          conversation_id: sessionId,
+          profile: {},
+          parameters: {},
+          resolved_queries: []
+        }
+      });
       getUserProfile(sender);
     }
     sessionIds.get(sender).timeout = Date.now() + defaultTimeout;
     /// check % or number of downpayment
-    if(sessionIds.get(sender).ask_downpayment && !sessionIds.get(sender).context.parameters.down_payment){
+    if (sessionIds.get(sender).ask_downpayment && !sessionIds.get(sender).context.parameters.down_payment) {
       // console.log("ask down_payment = true and down_payment param is null");
-      if(text.indexOf("%") > -1) {
+      if (text.indexOf("%") > -1) {
         // console.log("content %");
         var numberArr = text.split("%");
         // console.log(numberArr);
         // console.log("Is number " + isNaN(numberArr[0]));
-        if(!isNaN(numberArr[0])){
+        if (!isNaN(numberArr[0])) {
           var percent = parseFloat(numberArr[0], 10);
           // console.log("Parse float " + percent);
 
           if (3.5 <= percent && percent <= 100) {
-            percent = percent/100;
+            percent = percent / 100;
             var property_value = parseFloat(sessionIds.get(sender).context.parameters.property_value);
             // console.log("parse property_value " + property_value);
             // console.log("percent/ 100 ");
@@ -98,29 +109,28 @@ function processEvent(event) {
             // console.log("after calc");
             // console.log(text);
             sessionIds.get(sender).ask_downpayment = false;
-          }
-          else {
+          } else {
             sendFBMessage(sender, sendTextMessage(percentErrorStr));
             return;
           }
         }
-      }else {
-        if(!isNaN(text)){
+      } else {
+        if (!isNaN(text)) {
           var property_value = parseFloat(sessionIds.get(sender).context.parameters.property_value);
-          if(parseFloat(text) < 0.035 * property_value){
+          if (parseFloat(text) < 0.035 * property_value) {
             sendFBMessage(sender, sendTextMessage(percentErrorStr));
             return;
           }
         }
       }
     }
-    if(sessionIds.get(sender).ask_credit && sessionIds.get(sender).context.parameters.credit_score){
+    if (sessionIds.get(sender).ask_credit && sessionIds.get(sender).context.parameters.credit_score) {
       sessionIds.get(sender).ask_credit = false;
     }
-    if(sessionIds.get(sender).ask_credit && !sessionIds.get(sender).context.parameters.credit_score){
-      if(!isNaN(text)){
+    if (sessionIds.get(sender).ask_credit && !sessionIds.get(sender).context.parameters.credit_score) {
+      if (!isNaN(text)) {
         var creditScore = parseFloat(text);
-        if(creditScore < 620 ||  creditScore > 850){
+        if (creditScore < 620 || creditScore > 850) {
           sendFBMessage(sender, sendTextMessage(creditScoreErrorStr));
           return;
         }
@@ -155,30 +165,33 @@ function processEvent(event) {
           // console.log("Mess :====== " + arr[1]);
           if (isNaN(arr[0])) {
             // console.log('This is not number');
-            if(utils.isDefined(response.result.parameters.mortgage_advisor) && response.result.parameters.mortgage_advisor == 1){
-              googleGeo.addressValidator(response.result.parameters.address, function(data){
-                if(utils.isDefined(data)){
+            if (utils.isDefined(response.result.parameters.mortgage_advisor) && response.result.parameters.mortgage_advisor == 1) {
+              googleGeo.addressValidator(response.result.parameters.address, function(data) {
+                if (utils.isDefined(data)) {
                   // console.log("address after validator");
                   // console.log(data);
-                  addressQueue.set(Date.now(),{data: data, facebook_id: sender });
+                  addressQueue.set(Date.now(), {
+                    data: data,
+                    facebook_id: sender
+                  });
                   sendFBMessage(sender, sendTextMessage(waitingAddress));
                   // console.log(addressQueue);
                   return;
-                }else {
+                } else {
                   sendFBMessage(sender, sendTextMessage(addressStr));
                   return;
                 }
               });
-            }else {
+            } else {
               sendFBMessage(sender, sendTextMessage(arr[0]));
               return;
             }
-          }else {
-            if(arr[0] == API_AI_CODE.welcome ){
+          } else {
+            if (arr[0] == API_AI_CODE.welcome) {
 
               setTimeout(function() {
-                if(sessionIds.get(sender)){
-                  arr[1] = arr[1].slice(0, 5) + " "+sessionIds.get(sender).context.profile.first_name + arr[1].slice(5);
+                if (sessionIds.get(sender)) {
+                  arr[1] = arr[1].slice(0, 5) + " " + sessionIds.get(sender).context.profile.first_name + arr[1].slice(5);
                   sendFBMessage(sender, sendButtonMessage(arr[1], map.get(arr[0])));
                 }
               }, 2000);
@@ -220,91 +233,22 @@ function processEvent(event) {
   }
 }
 
-function pushHistoryToServer(sender,context){
-  var url = process.env.RAILS_URL + "facebook_webhooks/save_data";
-  // console.log("RAILS URL : " + url);
-  // console.log(context);
 
-  request({
-      method: 'POST',
-      uri: url,
-      json: context,
-      headers: {
-        "MORTGAGECLUB_FB": FB_VERIFY_TOKEN
-      }
-    },
-    function(error, response, body) {
-      if (error) {
-        console.error('Error while pushing history : ', error);
-      } else {
-        sessionIds.remove(sender);
-        console.log('History push ok');
-        // console.log(context);
-      }
-    });
-}
 
-function sendTextMessage(textMessage) {
-  return {
-    text: textMessage
-  }
-}
 
-function sendButtonMessage(text, buttons) {
-  return {
-    "attachment": {
-      "type": "template",
-      "payload": {
-        "template_type": "button",
-        "text": text,
-        "buttons": buttons
-      }
-    }
-  };
-}
-
-function sendGenericMessage(messages) {
-  // console.log(messages);
-  var messagesData = {
-    "attachment": {
-      "type": "template",
-      "payload": {
-        "template_type": "generic",
-        "elements": []
-      }
-    }
-  };
-  // console.log(" Length of Generic " + messages.length);
-  for (var i = 0; i < messages.length; i++) {
-
-    var messageData = {
-      "title": messages[i].title,
-      "image_url": messages[i].img_url,
-      "subtitle": messages[i].subtitle,
-      "buttons": [{
-        "type": "web_url",
-        "url": messages[i].url,
-        "title": "Get this rate"
-      }]
-    };
-    messagesData['attachment']['payload']['elements'][i] = messageData;
-  }
-  return messagesData;
-}
-
-function setUpTimeout(sender, context){
+function setUpTimeout(sender, context) {
   var setTimeoutVar = Date.now();
   // console.log("Settimeout : " + setTimeoutVar);
-  setTimeout(function () {
+  setTimeout(function() {
     // console.log("=================When run settimeout : " + Date.now());
-    if(sessionIds.get(sender)){
+    if (sessionIds.get(sender)) {
       // console.log("Timeout in session : " + sessionIds.get(sender).timeout);
       // console.log("Calc in set timeout : ");
       // console.log(Date.now() - sessionIds.get(sender).timeout);
-      if((Date.now() - sessionIds.get(sender).timeout) >= 0 ){
+      if ((Date.now() - sessionIds.get(sender).timeout) >= 0) {
         // console.log("Timeout push ===============");
         // console.log(context);
-        pushHistoryToServer(sender,context);
+        pushHistoryToServer(sender, context);
         // console.log("after remove ");
         // console.log(sessionIds.get(sender));
       }
@@ -312,88 +256,11 @@ function setUpTimeout(sender, context){
   }, defaultTimeout);
 }
 
-function sendFBMessage(sender, messageData) {
 
-  request({
-    url: 'https://graph.facebook.com/v2.6/me/messages',
-    qs: {
-      access_token: FB_PAGE_ACCESS_TOKEN
-    },
-    method: 'POST',
-    json: {
-      recipient: {
-        id: sender
-      },
-      message: messageData
-    }
-  }, function(error, response, body) {
-    if (error) {
-      console.log('Error sending message: ', error);
-    } else if (response.body.error) {
-      console.log('Error: ', response.body.error);
-    }
-  });
-}
 
-function doSubscribeRequest() {
-  // googleGeo.addressValidator("2113 wendover ln, san jose", function(data){
-  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-  //   // console.log(data);
-  // });
-  // googleGeo.addressValidator("18531 ALLENDALE AVE Saratoga", function(data){
-  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-  //   // console.log(data);
-  // });
-  // googleGeo.addressValidator("41085 CANYON HEIGHTS DR FREMONT", function(data){
-  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-  //   // console.log(data);
-  // });
-  // googleGeo.addressValidator("4549 PACIFIC RIM WAY San Jose", function(data){
-  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-  //   // console.log(data);
-  // });
-  // googleGeo.addressValidator("6032 WHITEHAVEN CT, SAN JOSE", function(data){
-  //   addressQueue.set(Date.now(),{data: data, facebook_id: "456456456" });
-  //   // console.log(data);
-  // });
-  request({
-      method: 'POST',
-      uri: "https://graph.facebook.com/v2.6/me/subscribed_apps?access_token=" + FB_PAGE_ACCESS_TOKEN
-    },
-    function(error, response, body) {
-      if (error) {
-        console.error('Error while subscription: ', error);
-      } else {
-        console.log('Subscription result: ', response.body);
-      }
-    });
-}
 
-function configWelcomeScreen() {
-  var config = {
-    "setting_type":"call_to_actions",
-    "thread_state":"new_thread",
-    "call_to_actions":[
-      {
-        "message":{
-          "text":"Welcome to MortgageClub. Just say something to get started. I'm still in beta, so apologize in advance for the bugs. :)"
-        }
-      }
-    ]
-  };
-  request({
-      method: 'POST',
-      uri: "https://graph.facebook.com/v2.6/"+ FB_PAGE_ID  +"/thread_settings?access_token=" + FB_PAGE_ACCESS_TOKEN,
-      json: config
-    },
-    function(error, response, body) {
-      if (error) {
-        console.error('Error while config: ', error);
-      } else {
-        console.log('Conifg result: ', response.body);
-      }
-    });
-}
+
+
 
 const app = express();
 app.use(bodyParser.json());
@@ -415,94 +282,6 @@ app.get('/webhook/', function(req, res) {
     res.send('Error, wrong validation token');
   }
 });
-function getUserProfile(fbUserID){
-  request({
-      method: 'GET',
-      uri: "https://graph.facebook.com/v2.6/"+ fbUserID +"?fields=first_name,last_name,profile_pic&access_token=" + FB_PAGE_ACCESS_TOKEN
-    },
-    function(error, response, body) {
-      if (error) {
-        console.error('Error while getting user profile: ', error);
-      } else {
-        sessionIds.get(fbUserID).context.profile = JSON.parse(response.body);
-        // console.log('user profile: ', response.body);
-        sessionIds.get(fbUserID).context.profile.facebook_id = fbUserID;
-        // console.log('user profile: ', response.body);
-      }
-    });
-}
-function getQuotes(sender, parameters){
-  var url = process.env.RAILS_URL + "facebook_webhooks/receive";
-  // console.log("RAILS URL : " + url);
-  // console.log(context);
-  // console.log(parameters);
-  request({
-      method: 'POST',
-      uri: url,
-      json: parameters,
-      headers: {
-        "MORTGAGECLUB_FB": FB_VERIFY_TOKEN
-      }
-    },
-    function(error, response, body) {
-      if (error) {
-        console.error('Error while getting quotes : ', error);
-      } else {
-        console.log('Get quotes ok');
-        console.log(response.body);
-        var rates = JSON.parse(response.body.speech);
-        if(rates.status_code == 200 ){
-          sendFBMessage(sender, sendGenericMessage(rates.data));
-        }else {
-          sendFBMessage(sender, sendTextMessage(rates.data));
-        }
-        pushHistoryToServer(sender, sessionIds.get(sender).context);
-        return;
-        // console.log(context);
-      }
-    });
-}
-
-function getRefinance(sender, data){
-  var url = process.env.RAILS_URL + "facebook_webhooks/refinance";
-  // console.log("RAILS URL : " + url);
-  // console.log(context);
-  // console.log(parameters);
-  request({
-      method: 'POST',
-      uri: url,
-      json: data,
-      headers: {
-        "MORTGAGECLUB_FB": FB_VERIFY_TOKEN
-      }
-    },
-    function(error, response, body) {
-      if (error) {
-        console.error('Error while getting refinance : ', error);
-      } else {
-        console.log('Get refinance ok');
-        console.log(response.body);
-        console.log('Get refinance speech');
-
-        console.log(response.body.speech);
-        console.log('Get refinance Sender');
-        console.log(sender);
-
-        // var rates = JSON.parse(response.body.speech);
-        // console.log(rates);
-        if(response.body.speech.status_code == 200 ){
-          // console.log(rates);
-          sendFBMessage(sender, sendTextMessage("Lower rate refinance : New interest rate" + response.body.speech.lower_rate_refinance.new_interest_rate + " New monthly payment: " + response.body.speech.lower_rate_refinance.new_monthly_payment ));
-          sendFBMessage(sender, sendTextMessage("Saving 1 year : " + response.body.speech.lower_rate_refinance.savings_1_year + " Saving 3 year: " + response.body.speech.lower_rate_refinance.savings_3_years  + " Saving 10 year: " + response.body.speech.lower_rate_refinance.savings_10_years ));
-          sendFBMessage(sender, sendTextMessage("Cash out refinance : Current estimated value is " + response.body.speech.cash_out_refinance.current_home_value + " and you can take " + response.body.speech.cash_out_refinance.cash_out + " cash out at a low interest rate to invest in something else."));
-        }else {
-          sendFBMessage(sender, sendTextMessage("Have something wrong. Please try again!"));
-        }
-        // pushHistoryToServer(sender, sessionIds.get(sender).context);
-        return;
-      }
-    });
-}
 
 app.post('/webhook', function(req, res) {
   // console.log(req);
@@ -523,8 +302,8 @@ app.post('/webhook', function(req, res) {
   }
 
 });
-app.get('/get-address', function(req, res){
-  if(addressQueue.count() === 0){
+app.get('/get-address', function(req, res) {
+  if (addressQueue.count() === 0) {
     console.log("count = 0");
     res.status(404).json("Has no record");
     return;
@@ -533,40 +312,32 @@ app.get('/get-address', function(req, res){
   var firstQueue = addressQueue.get(firstKey);
   console.log("count before remove");
   console.log(addressQueue.count());
-  if(utils.isDefined(firstQueue)){
-    googleGeo.formatAddressForScape(firstQueue.data.address_components, function(data){
+  if (utils.isDefined(firstQueue)) {
+    googleGeo.formatAddressForScape(firstQueue.data.address_components, function(data) {
       addressQueue.remove(firstKey);
       console.log("count after remove");
       console.log(addressQueue.count());
-      console.log("Facebook ID : " + firstQueue.facebook_id );
-      console.log("Zipcode ID : " + data.zipcode );
-      res.status(200).json({"timestamp": firstKey, "address": data.address, "facebook_id":firstQueue.facebook_id, "zipcode": data.zipcode });
+      console.log("Facebook ID : " + firstQueue.facebook_id);
+      console.log("Zipcode ID : " + data.zipcode);
+      res.status(200).json({
+        "timestamp": firstKey,
+        "address": data.address,
+        "facebook_id": firstQueue.facebook_id,
+        "zipcode": data.zipcode
+      });
     });
     return;
-  }else {
+  } else {
     res.status(404).json("Has no record");
     return;
   }
 });
-app.post('/scape-address', function(req, res){
-  // var data = {
-  //   "facebook_id": 123,
-  //   "timestamp" : 123124124,
-  //   "address": "6 World Way, Los Angeles, CA 90045",
-  //   "owner_name": "Tang NV",
-  //   "owner_name2": "Tang NV 3D",
-  //   "mortgage_histories": [{
-  //     "mortgage_date": "12/02/2010",
-  //     "mortgage_amount": 500000,
-  //     "mortgage_lender": "James Nguyen",
-  //     "mortgage_code": "123",
-  //     "mortgage_type": "house"
-  //   }]
-  // };
 
-  if(utils.isDefined(req.body.error) && utils.isDefined(req.body.facebook_id)){
+app.post('/scape-address', function(req, res) {
+
+  if (utils.isDefined(req.body.error) || !utils.isDefined(req.body.facebook_id)) {
     console.log("error from ui path");
-  }else {
+  } else {
     console.log("receive scape address data");
     console.log(req.body);
     getRefinance(req.body.facebook_id, req.body);

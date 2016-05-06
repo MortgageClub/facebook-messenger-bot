@@ -7,7 +7,7 @@ exports.addressValidator = function(addressStr, callback) {
   var token = process.env.GOOGLE_GEO_TOKEN;
   // console.log("Address string ");
   // console.log(addressStr);
-  if(utils.isDefined(addressStr)) {
+  if (utils.isDefined(addressStr)) {
     var url = "https://maps.googleapis.com/maps/api/geocode/json?address=" + addressStr + "&key=" + token;
     request({
         method: 'GET',
@@ -20,7 +20,7 @@ exports.addressValidator = function(addressStr, callback) {
           return;
         } else {
           var addressData = JSON.parse(response.body);
-          if(addressData.status == "OK"){
+          if (addressData.status == "OK") {
             console.log('Get address ok');
             // addressData.results[0].address_components.forEach(function(entry) {
             //   console.log("each entry");
@@ -33,24 +33,24 @@ exports.addressValidator = function(addressStr, callback) {
           // console.log(context);
         }
       });
-  }else {
+  } else {
     callback();
     return;
   }
 
 };
-exports.getPostalCode = function(address_components, callback){
+exports.getPostalCode = function(address_components, callback) {
   var postalCode = null;
   // console.log(address);
   address_components.forEach(function(entry) {
-      if(entry.types[0] == "postal_code"){
-        postalCode = entry.short_name;
-        return;
-      }
+    if (entry.types[0] == "postal_code") {
+      postalCode = entry.short_name;
+      return;
+    }
   });
   callback(postalCode);
 };
-exports.formatAddressForScape = function(address_components, callback){
+exports.formatAddressForScape = function(address_components, callback) {
   var route = "";
   var street_number = "";
   var city = "";
@@ -60,44 +60,47 @@ exports.formatAddressForScape = function(address_components, callback){
   var postalCode = null;
 
   address_components.forEach(function(entry) {
-      console.log(entry);
-      if(entry.types[0] == "postal_code"){
-        postalCode = entry.short_name;
-        return;
-      }
-      if(entry.types[0] == "street_number"){
-        street_number = entry.short_name;
-        return;
-          // case "street_number":
-          //     street_number = this.short_name;
-          //     break;
-          // case "route":
-          //     route = this.short_name;
-          //     break;
-          // case "administrative_area_level_1":
-          //     state = this.short_name;
-          //     break;
-          // case "locality":
-          //     city = this.short_name;
-          //     break;
-      }
-      if(entry.types[0] == "route"){
-        route = entry.short_name;
-        return;
-      }
-      // if(entry.types[0] == "administrative_area_level_1"){
-      //   state = entry.short_name;
-      //   return;
-      // }
-      if(entry.types[0] == "locality"){
-        city = entry.short_name;
-        return;
-      }
+    console.log(entry);
+    if (entry.types[0] == "postal_code") {
+      postalCode = entry.short_name;
+      return;
+    }
+    if (entry.types[0] == "street_number") {
+      street_number = entry.short_name;
+      return;
+      // case "street_number":
+      //     street_number = this.short_name;
+      //     break;
+      // case "route":
+      //     route = this.short_name;
+      //     break;
+      // case "administrative_area_level_1":
+      //     state = this.short_name;
+      //     break;
+      // case "locality":
+      //     city = this.short_name;
+      //     break;
+    }
+    if (entry.types[0] == "route") {
+      route = entry.short_name;
+      return;
+    }
+    // if(entry.types[0] == "administrative_area_level_1"){
+    //   state = entry.short_name;
+    //   return;
+    // }
+    if (entry.types[0] == "locality") {
+      city = entry.short_name;
+      return;
+    }
   });
 
   address = street_number + " " + route + " " + city;
   console.log("after address=========");
 
   console.log(address);
-  callback({"address": address, "zipcode": postalCode});
+  callback({
+    "address": address,
+    "zipcode": postalCode
+  });
 };

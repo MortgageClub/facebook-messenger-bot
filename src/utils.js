@@ -12,4 +12,4 @@ function isDefined(obj) {
 
 module.exports = {
   isDefined: isDefined
-}
+};
