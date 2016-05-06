@@ -1,3 +1,8 @@
+//Page access token
+const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
+// fb page ID
+const FB_PAGE_ID = process.env.FB_PAGE_ID;
+
 /**
  * [textMessage description]
  * @method textMessage
@@ -70,7 +75,7 @@ function genericMessage(messages) {
  * @param  {[type]}      FB_PAGE_ACCESS_TOKEN [description]
  * @return {[type]}                           [description]
  */
-function sendFBMessage(sender, messageData, FB_PAGE_ACCESS_TOKEN) {
+function sendFBMessage(sender, messageData) {
 
   request({
     url: 'https://graph.facebook.com/v2.6/me/messages',
@@ -98,7 +103,7 @@ function sendFBMessage(sender, messageData, FB_PAGE_ACCESS_TOKEN) {
  * @param  {[string]}            FB_PAGE_ID           [facebook page id of bot]
  * @param  {[string]}            FB_PAGE_ACCESS_TOKEN [description]
  */
-function configWelcomeScreen(FB_PAGE_ID, FB_PAGE_ACCESS_TOKEN) {
+function configWelcomeScreen() {
   var config = {
     "setting_type":"call_to_actions",
     "thread_state":"new_thread",
@@ -124,7 +129,7 @@ function configWelcomeScreen(FB_PAGE_ID, FB_PAGE_ACCESS_TOKEN) {
     });
 }
 
-function getUserProfile(fbUserID, FB_PAGE_ACCESS_TOKEN){
+function getUserProfile(fbUserID){
   request({
       method: 'GET',
       uri: "https://graph.facebook.com/v2.6/"+ fbUserID +"?fields=first_name,last_name,profile_pic&access_token=" + FB_PAGE_ACCESS_TOKEN

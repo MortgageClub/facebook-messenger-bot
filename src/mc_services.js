@@ -1,7 +1,12 @@
 var request = require('request');
 var utils = require('./utils');
+var fbServices = require('./fb_services');
 
-function getQuotes(sender, parameters, FB_VERIFY_TOKEN, RAILS_URL){
+const RAILS_URL = process.env.RAILS_URL;
+const FB_VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN;
+
+
+function getQuotes(sender, parameters){
   var url = RAILS_URL + "facebook_webhooks/receive";
   request({
       method: 'POST',
@@ -19,9 +24,9 @@ function getQuotes(sender, parameters, FB_VERIFY_TOKEN, RAILS_URL){
         console.log(response.body);
         var rates = JSON.parse(response.body.speech);
         if(rates.status_code == 200 ){
-          sendFBMessage(sender, sendGenericMessage(rates.data));
+          fbServices.sendFBMessage(sender, fbServices.genericMessage(rates.data));
         }else {
-          sendFBMessage(sender, sendTextMessage(rates.data));
+          fbServices.sendFBMessage(sender, fbServices.textMessage(rates.data));
         }
         pushHistoryToServer(sender, sessionIds.get(sender).context);
         return;
@@ -30,7 +35,7 @@ function getQuotes(sender, parameters, FB_VERIFY_TOKEN, RAILS_URL){
     });
 }
 
-function getRefinance(sender, data, FB_VERIFY_TOKEN, RAILS_URL){
+function getRefinance(sender, data){
   var url = RAILS_URL + "facebook_webhooks/refinance";
   // console.log("RAILS URL : " + url);
   // console.log(context);
@@ -73,7 +78,7 @@ function getRefinance(sender, data, FB_VERIFY_TOKEN, RAILS_URL){
     });
 }
 
-function pushHistoryToServer(sender,context, FB_VERIFY_TOKEN, RAILS_URL){
+function pushHistoryToServer(sender,context){
   var url = RAILS_URL + "facebook_webhooks/save_data";
   // console.log("RAILS URL : " + url);
   // console.log(context);

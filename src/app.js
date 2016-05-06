@@ -18,15 +18,14 @@ const APIAI_ACCESS_TOKEN = process.env.APIAI_ACCESS_TOKEN;
 const APIAI_LANG = process.env.APIAI_LANG || 'en';
 //facebook verify token
 const FB_VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN;
-//Page access token
-const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
-// fb page ID
-const FB_PAGE_ID = process.env.FB_PAGE_ID;
+
 
 //// custom module
 const utils = require('./utils.js');
 const API_AI_CODE = require('./api_ai_code.js');
 const FB_BTN = require('./fb_btn.js');
+var fbServices = require('./fb_services.js');
+
 
 //connect to google geo for checking address
 const googleGeo = require('./google_geo.js');
@@ -84,7 +83,7 @@ function processEvent(event) {
           resolved_queries: []
         }
       });
-      getUserProfile(sender);
+      fbServices.getUserProfile(sender);
     }
     sessionIds.get(sender).timeout = Date.now() + defaultTimeout;
     /// check % or number of downpayment
@@ -110,7 +109,7 @@ function processEvent(event) {
             // console.log(text);
             sessionIds.get(sender).ask_downpayment = false;
           } else {
-            sendFBMessage(sender, sendTextMessage(percentErrorStr));
+            fbServices.sendFBMessage(sender, fbServices.textMessage(percentErrorStr));
             return;
           }
         }
@@ -118,7 +117,7 @@ function processEvent(event) {
         if (!isNaN(text)) {
           var property_value = parseFloat(sessionIds.get(sender).context.parameters.property_value);
           if (parseFloat(text) < 0.035 * property_value) {
-            sendFBMessage(sender, sendTextMessage(percentErrorStr));
+            fbServices.sendFBMessage(sender, fbServices.textMessage(percentErrorStr));
             return;
           }
         }
@@ -131,7 +130,7 @@ function processEvent(event) {
       if (!isNaN(text)) {
         var creditScore = parseFloat(text);
         if (creditScore < 620 || creditScore > 850) {
-          sendFBMessage(sender, sendTextMessage(creditScoreErrorStr));
+          fbServices.sendFBMessage(sender, fbServices.textMessage(creditScoreErrorStr));
           return;
         }
       }
@@ -174,16 +173,16 @@ function processEvent(event) {
                     data: data,
                     facebook_id: sender
                   });
-                  sendFBMessage(sender, sendTextMessage(waitingAddress));
+                  fbServices.sendFBMessage(sender, fbServices.textMessage(waitingAddress));
                   // console.log(addressQueue);
                   return;
                 } else {
-                  sendFBMessage(sender, sendTextMessage(addressStr));
+                  fbServices.sendFBMessage(sender, fbServices.textMessage(addressStr));
                   return;
                 }
               });
             } else {
-              sendFBMessage(sender, sendTextMessage(arr[0]));
+              fbServices.sendFBMessage(sender, fbServices.textMessage(arr[0]));
               return;
             }
           } else {
@@ -192,7 +191,7 @@ function processEvent(event) {
               setTimeout(function() {
                 if (sessionIds.get(sender)) {
                   arr[1] = arr[1].slice(0, 5) + " " + sessionIds.get(sender).context.profile.first_name + arr[1].slice(5);
-                  sendFBMessage(sender, sendButtonMessage(arr[1], map.get(arr[0])));
+                  fbServices.sendFBMessage(sender, fbServices.buttonMessage(arr[1], map.get(arr[0])));
                 }
               }, 2000);
               return;
@@ -200,23 +199,23 @@ function processEvent(event) {
 
             if (arr[0] == API_AI_CODE.downpayment) {
               sessionIds.get(sender).ask_downpayment = true;
-              sendFBMessage(sender, sendTextMessage(arr[1]));
+              fbServices.sendFBMessage(sender, fbServices.textMessage(arr[1]));
               return;
             }
 
             if (arr[0] == API_AI_CODE.creditScoreCode) {
               sessionIds.get(sender).ask_credit = true;
-              sendFBMessage(sender, sendTextMessage(arr[1]));
+              fbServices.sendFBMessage(sender, fbServices.textMessage(arr[1]));
               return;
             }
 
             if (arr[0] == API_AI_CODE.endApiAiConversation) {
-              sendFBMessage(sender, sendTextMessage(arr[1]));
+              fbServices.sendFBMessage(sender, fbServices.textMessage(arr[1]));
               getQuotes(sender, response.result);
               return;
             }
 
-            sendFBMessage(sender, sendButtonMessage(arr[1], map.get(arr[0])));
+            fbServices.sendFBMessage(sender, fbServices.buttonMessage(arr[1], map.get(arr[0])));
             return;
 
 
@@ -273,11 +272,11 @@ app.all('*', function(req, res, next) {
 app.get('/webhook/', function(req, res) {
   if (req.query['hub.verify_token'] == FB_VERIFY_TOKEN) {
     res.send(req.query['hub.challenge']);
-    // configWelcomeScreen();
+    // fbServices.configWelcomeScreen();
     setTimeout(function() {
-      doSubscribeRequest();
-      configWelcomeScreen();
-    }, 3000);
+      fbServices.doSubscribeRequest();
+      fbServices.configWelcomeScreen();
+    }, 1000);
   } else {
     res.send('Error, wrong validation token');
   }
@@ -347,5 +346,5 @@ app.listen(REST_PORT, function() {
   console.log('Rest service ready on port ' + REST_PORT);
 });
 
-doSubscribeRequest();
-configWelcomeScreen();
+fbServices.doSubscribeRequest();
+fbServices.configWelcomeScreen();
