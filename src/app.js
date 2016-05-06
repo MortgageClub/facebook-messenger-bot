@@ -21,13 +21,15 @@ const FB_VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN;
 
 
 //// custom module
-const utils = require('./utils.js');
-const API_AI_CODE = require('./api_ai_code.js');
-const FB_BTN = require('./fb_btn.js');
-var fbServices = require('./fb_services.js');
+const utils = require('./utils');
+const API_AI_CODE = require('./api_ai_code');
+const FB_BTN = require('./fb_btn');
+const fbServices = require('./fb_services');
+const mcServices = require('./mc_services');
+
 
 //connect to google geo for checking address
-const googleGeo = require('./google_geo.js');
+const googleGeo = require('./google_geo');
 const HashMap = require('hashmap');
 // store btn
 var mapFbBtn = new HashMap();
@@ -66,8 +68,8 @@ function processEvent(event) {
     text = event.postback.payload;
   }
   if (text) {
-    // Handle a text message from this sender - before sending to Api ai
 
+    // Handle a text message from this sender - before sending to Api ai
     if (!sessionIds.get(sender)) {
       var sessionId = uuid.v1();
       sessionIds.set(sender, {
@@ -82,14 +84,19 @@ function processEvent(event) {
           resolved_queries: []
         }
       });
-      fbServices.getUserProfile(sender);
+
+      fbServices.getUserProfile(sender, function(data){
+          sessionIds.get(sender).context.profile = JSON.parse(data);
+          sessionIds.get(sender).context.profile.facebook_id = sender;
+      });
     }
+
     sessionIds.get(sender).timeout = Date.now() + defaultTimeout;
     /// check % or number of downpayment
     if (sessionIds.get(sender).ask_downpayment && !sessionIds.get(sender).context.parameters.down_payment) {
       // console.log("ask down_payment = true and down_payment param is null");
       if (text.indexOf("%") > -1) {
-        // console.log("content %");
+        console.log("content %");
         var numberArr = text.split("%");
         // console.log(numberArr);
         // console.log("Is number " + isNaN(numberArr[0]));
@@ -210,7 +217,7 @@ function processEvent(event) {
 
             if (arr[0] == API_AI_CODE.endApiAiConversation) {
               fbServices.sendFBMessage(sender, fbServices.textMessage(arr[1]));
-              getQuotes(sender, response.result);
+              mcServices.getQuotes(sender, response.result);
               return;
             }
 
@@ -273,6 +280,7 @@ app.get('/webhook/', function(req, res) {
     res.send(req.query['hub.challenge']);
     // fbServices.configWelcomeScreen();
     setTimeout(function() {
+      // console.log("run config");
       fbServices.doSubscribeRequest();
       fbServices.configWelcomeScreen();
     }, 1000);
@@ -281,7 +289,7 @@ app.get('/webhook/', function(req, res) {
   }
 });
 
-app.post('/webhook', function(req, res) {
+app.post('/webhook/', function(req, res) {
   // console.log(req);
   try {
     var messaging_events = req.body.entry[0].messaging;
@@ -338,7 +346,7 @@ app.post('/scape-address', function(req, res) {
   } else {
     console.log("receive scape address data");
     console.log(req.body);
-    getRefinance(req.body.facebook_id, req.body);
+    mcServices.getRefinance(req.body.facebook_id, req.body);
   }
 });
 app.listen(REST_PORT, function() {

@@ -1,3 +1,5 @@
+var request = require('request');
+
 //Page access token
 const FB_PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
 // fb page ID
@@ -129,7 +131,7 @@ function configWelcomeScreen() {
     });
 }
 
-function getUserProfile(fbUserID){
+function getUserProfile(fbUserID, callback){
   request({
       method: 'GET',
       uri: "https://graph.facebook.com/v2.6/"+ fbUserID +"?fields=first_name,last_name,profile_pic&access_token=" + FB_PAGE_ACCESS_TOKEN
@@ -137,36 +139,20 @@ function getUserProfile(fbUserID){
     function(error, response, body) {
       if (error) {
         console.error('Error while getting user profile: ', error);
+        callback();
+        return;
       } else {
-        sessionIds.get(fbUserID).context.profile = JSON.parse(response.body);
+        // sessionIds.get(fbUserID).context.profile = JSON.parse(response.body);
         // console.log('user profile: ', response.body);
-        sessionIds.get(fbUserID).context.profile.facebook_id = fbUserID;
+        callback(response.body);
+        return;
+        // sessionIds.get(fbUserID).context.profile.facebook_id = fbUserID;
         // console.log('user profile: ', response.body);
       }
     });
-}
+};
 
 function doSubscribeRequest() {
-  // googleGeo.addressValidator("2113 wendover ln, san jose", function(data){
-  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-  //   // console.log(data);
-  // });
-  // googleGeo.addressValidator("18531 ALLENDALE AVE Saratoga", function(data){
-  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-  //   // console.log(data);
-  // });
-  // googleGeo.addressValidator("41085 CANYON HEIGHTS DR FREMONT", function(data){
-  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-  //   // console.log(data);
-  // });
-  // googleGeo.addressValidator("4549 PACIFIC RIM WAY San Jose", function(data){
-  //   addressQueue.set(Date.now(),{data: data, facebook_id: "123123123" });
-  //   // console.log(data);
-  // });
-  // googleGeo.addressValidator("6032 WHITEHAVEN CT, SAN JOSE", function(data){
-  //   addressQueue.set(Date.now(),{data: data, facebook_id: "456456456" });
-  //   // console.log(data);
-  // });
   request({
       method: 'POST',
       uri: "https://graph.facebook.com/v2.6/me/subscribed_apps?access_token=" + FB_PAGE_ACCESS_TOKEN
@@ -184,5 +170,8 @@ module.exports = {
   genericMessage: genericMessage,
   textMessage: textMessage,
   buttonMessage: buttonMessage,
-  sendFBMessage: sendFBMessage
+  sendFBMessage: sendFBMessage,
+  doSubscribeRequest: doSubscribeRequest,
+  configWelcomeScreen: configWelcomeScreen,
+  getUserProfile: getUserProfile
 };
