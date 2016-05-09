@@ -49,13 +49,15 @@ const defaultTimeout = process.env.DEFAULT_TIMEOUT; //miliseconds
 // message
 var signupStr = "Do you want to apply for a mortgage now? (Yes/No)";
 var waitingQuote = "I'm analyzing thousands of loan programs to find the best mortgage loans for you...";
-var waitingAddress = "I'm checking your address...";
+var waitingAddress = "I'm analyzing your address...";
 
 var percentErrorStr = "Sorry, down payment must be at least 3.5%. Please enter it again.";
 var creditScoreErrorStr = "Sorry, credit score must be between 620 and 850 (Hint: u can get your free credit score on CreditKarma).";
-var addressStr = "Sorry, Your address is not exist. Please try again !";
+var addressNotFoundStr = "Sorry, Your address is not exist. Please try again !";
 
-mapFbBtn.set(API_AI_CODE.welcome, FB_BTN.btnPurposeTypes);
+mapFbBtn.set(API_AI_CODE.welcome, FB_BTN.btnWelcome);
+mapFbBtn.set(API_AI_CODE.purpose, FB_BTN.btnPurposeTypes);
+
 mapFbBtn.set(API_AI_CODE.usage, FB_BTN.btnUsage);
 mapFbBtn.set(API_AI_CODE.propertyType, FB_BTN.btnPropertyTypes);
 
@@ -171,28 +173,34 @@ function processEvent(event) {
           // console.log("Mess :====== " + arr[1]);
           if (isNaN(arr[0])) {
             // console.log('This is not number');
-            if (utils.isDefined(response.result.parameters.mortgage_advisor) && response.result.parameters.mortgage_advisor == 1) {
-              googleGeo.addressValidator(response.result.parameters.address, function(data) {
-                if (utils.isDefined(data)) {
-                  // console.log("address after validator");
-                  // console.log(data);
-                  addressQueue.set(Date.now(), {
-                    data: data,
-                    facebook_id: sender
-                  });
-                  fbServices.sendFBMessage(sender, fbServices.textMessage(waitingAddress));
-                  // console.log(addressQueue);
-                  return;
-                } else {
-                  fbServices.sendFBMessage(sender, fbServices.textMessage(addressStr));
-                  return;
-                }
-              });
-            } else {
               fbServices.sendFBMessage(sender, fbServices.textMessage(arr[0]));
               return;
-            }
+
           } else {
+
+            if(arr[0] == API_AI_CODE.address) {
+              if (utils.isDefined(response.result.parameters.address)) {
+                googleGeo.addressValidator(response.result.parameters.address, function(data) {
+                  if (utils.isDefined(data)) {
+                    // console.log("address after validator");
+                    // console.log(data);
+                    addressQueue.set(Date.now(), {
+                      data: data,
+                      facebook_id: sender
+                    });
+                    fbServices.sendFBMessage(sender, fbServices.textMessage(waitingAddress));
+                    console.log("set address ok");
+                    console.log(addressQueue);
+                    return;
+                  } else {
+                    fbServices.sendFBMessage(sender, fbServices.textMessage(addressNotFoundStr));
+                    return;
+                  }
+                });
+              }
+              return;
+            }
+
             if (arr[0] == API_AI_CODE.welcome) {
 
               setTimeout(function() {
@@ -203,7 +211,10 @@ function processEvent(event) {
               }, 2000);
               return;
             }
-
+            if (arr[0] == API_AI_CODE.purpose) {
+              fbServices.sendFBMessage(sender, fbServices.buttonMessage(arr[1], mapFbBtn.get(arr[0])));
+              return;
+            }
             if (arr[0] == API_AI_CODE.downpayment) {
               sessionIds.get(sender).ask_downpayment = true;
               fbServices.sendFBMessage(sender, fbServices.textMessage(arr[1]));
@@ -225,7 +236,7 @@ function processEvent(event) {
               });
               return;
             }
-
+            console.log("aas das");
             fbServices.sendFBMessage(sender, fbServices.buttonMessage(arr[1], mapFbBtn.get(arr[0])));
             return;
 
@@ -242,9 +253,6 @@ function processEvent(event) {
     apiaiRequest.end();
   }
 }
-
-
-
 
 function setUpTimeout(sender, context) {
   var setTimeoutVar = Date.now();

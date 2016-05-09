@@ -8,6 +8,15 @@ var btnPurposeTypes = [{
   "title": "Refinance",
   "payload": "refinance"
 }];
+var btnWelcome = [{
+  "type": "postback",
+  "title": "Get a rate quote",
+  "payload": "get_rate_quote"
+}, {
+  "type": "postback",
+  "title": "Should I refinance?",
+  "payload": "get_refinance"
+}];
 /// usage
 var btnUsage = [{
   "type": "postback",
@@ -39,5 +48,6 @@ var btnPropertyTypes = [{
 module.exports = {
   btnPropertyTypes: btnPropertyTypes,
   btnUsage: btnUsage,
-  btnPurposeTypes: btnPurposeTypes
+  btnPurposeTypes: btnPurposeTypes,
+  btnWelcome:btnWelcome
 };
