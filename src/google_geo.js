@@ -54,7 +54,7 @@ exports.formatAddressForScape = function(address_components, callback) {
       route = entry.short_name;
       return;
     }
-    if (entry.types[0] == "locality") {
+    if (entry.types[0] == "locality" || entry.types[0] == "neighborhood" ) {
       city = entry.short_name;
       return;
     }

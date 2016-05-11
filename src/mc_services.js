@@ -68,11 +68,14 @@ function getRefinance(sender, data, callback){
           // console.log(rates);
           if(response.body.speech.status_code == 200 ){
             // console.log(rates);
-            fbServices.sendFBMessage(sender, fbServices.textMessage("Lower rate refinance : New interest rate" + response.body.speech.lower_rate_refinance.new_interest_rate + " New monthly payment: " + response.body.speech.lower_rate_refinance.new_monthly_payment ));
+
+            fbServices.sendFBMessage(sender, fbServices.textMessage("Address : " + response.body.speech.address +  "Lower rate refinance : New interest rate" + response.body.speech.lower_rate_refinance.new_interest_rate + " New monthly payment: " + response.body.speech.lower_rate_refinance.new_monthly_payment ));
             fbServices.sendFBMessage(sender, fbServices.textMessage("Saving 1 year : " + response.body.speech.lower_rate_refinance.savings_1_year + " Saving 3 year: " + response.body.speech.lower_rate_refinance.savings_3_years  + " Saving 10 year: " + response.body.speech.lower_rate_refinance.savings_10_years ));
             fbServices.sendFBMessage(sender, fbServices.textMessage("Cash out refinance : Current estimated value is " + response.body.speech.cash_out_refinance.current_home_value + " and you can take " + response.body.speech.cash_out_refinance.cash_out + " cash out at a low interest rate to invest in something else."));
           }else {
-            fbServices.sendFBMessage(sender, fbServices.textMessage("Have something wrong. Please try again!"));
+            // fbServices.sendFBMessage(sender, fbServices.textMessage("Have something wrong. Please try again! Error Address "));
+            callback(response.body);
+            return;
           }
         }
         callback(null);

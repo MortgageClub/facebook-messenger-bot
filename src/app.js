@@ -50,7 +50,7 @@ const defaultTimeout = process.env.DEFAULT_TIMEOUT; //miliseconds
 var signupStr = "Do you want to apply for a mortgage now? (Yes/No)";
 var waitingQuote = "I'm analyzing thousands of loan programs to find the best mortgage loans for you...";
 var waitingAddress = "I'm analyzing your address...";
-
+var refinanceErr = "Sorry, I can't find your address in our database. I've asked my human colleagues to look into it. Someone will contact you shortly!";
 var percentErrorStr = "Sorry, down payment must be at least 3.5%. Please enter it again.";
 var creditScoreErrorStr = "Sorry, credit score must be between 620 and 850 (Hint: u can get your free credit score on CreditKarma).";
 var addressNotFoundStr = "Sorry, Your address is not exist. Please try again !";
@@ -180,6 +180,7 @@ function processEvent(event) {
 
             if(arr[0] == API_AI_CODE.address) {
               if (utils.isDefined(response.result.parameters.address)) {
+                console.log("data before Geo api ai: " + response.result.parameters.address);
                 googleGeo.addressValidator(response.result.parameters.address, function(data) {
                   if (utils.isDefined(data)) {
                     // console.log("address after validator");
@@ -368,15 +369,23 @@ app.get('/get-address', function(req, res) {
 });
 
 app.post('/scape-address', function(req, res) {
-
-  if (utils.isDefined(req.body.error) || !utils.isDefined(req.body.facebook_id)) {
-    console.log("error from ui path");
+  // console.log("scape address");
+  // console.log(req);
+  if (utils.isDefined(req.body.error) || !utils.isDefined(req.body.facebook_id) || req.body.status_code == 404) {
+    console.log("error from ui path " + req.body.address);
+    fbServices.sendFBMessage(req.body.facebook_id, fbServices.textMessage(refinanceErr + " Error address: " +req.body.address));
+    return;
   } else {
     console.log("receive scape address data");
     console.log(req.body);
+    console.log("address after scape " + req.body.address);
+
+
     mcServices.getRefinance(req.body.facebook_id, req.body, function(err){
       if(err){
-        console.log("has error when get refinance");
+        console.log(err);
+        fbServices.sendFBMessage(req.body.facebook_id, fbServices.textMessage("Rails Error Address "+req.body.address + " : "+ err.speech.data));
+        return;
       }
     });
   }
