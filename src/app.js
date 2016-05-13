@@ -37,6 +37,7 @@ var mapFbBtn = new HashMap();
 
 // address queue to store address when users input (take 30s per request)
 var addressQueue = new HashMap();
+const refinanceApiResult = new HashMap();
 
 const apiAiService = apiai(APIAI_ACCESS_TOKEN, {
   language: APIAI_LANG
@@ -185,9 +186,10 @@ function processEvent(event) {
                   if (utils.isDefined(data)) {
                     // console.log("address after validator");
                     // console.log(data);
-                    addressQueue.set(Date.now(), {
+                    addressQueue.set(Date.now().toString(), {
                       data: data,
-                      facebook_id: sender
+                      facebook_id: sender,
+                      refinance_api: false
                     });
                     fbServices.sendFBMessage(sender, fbServices.textMessage(waitingAddress));
                     console.log("set address ok");
@@ -317,7 +319,49 @@ app.get('/webhook/', function(req, res) {
     res.send('Error, wrong validation token');
   }
 });
+app.post('/refinance', function(req, res){
+  console.log("START refinance api ");
+  if(req.body && req.body.address){
+    // console.log("receive address : " + req.body.address);
+    googleGeo.addressValidator(req.body.address, function(data) {
+      if (utils.isDefined(data)) {
+        var key = Date.now().toString();
+        addressQueue.set(key, {
+          data: data,
+          refinance_api: true,
+          result: null
+        });
+        console.log("address queue ");
+        console.log(addressQueue);
+        setTimeout(function() {
+          console.log("all refinance api result");
+          console.log(refinanceApiResult);
+          console.log("key ::::: " + key);
+          var refinance = refinanceApiResult.get(key);
+          console.log("refinance ::::: " + refinance.data);
+          if (refinance) {
 
+            
+            res.json({result: refinance.result});
+            return;
+          }
+        }, 90000);
+
+
+        // console.log(addressQueue);
+
+      } else {
+        res.send("No result");
+        return;
+      }
+    });
+  }else {
+    console.log("Nothing");
+    res.send("Please input the address");
+    return;
+  }
+  console.log("END refinance api ");
+});
 app.post('/webhook/', function(req, res) {
   // console.log(req);
   try {
@@ -345,15 +389,19 @@ app.get('/get-address', function(req, res) {
   }
   var firstKey = addressQueue.keys()[0];
   var firstQueue = addressQueue.get(firstKey);
-  console.log("count before remove");
-  console.log(addressQueue.count());
+  // console.log("count before remove");
+  // console.log(addressQueue.count());
   if (utils.isDefined(firstQueue)) {
     googleGeo.formatAddressForScape(firstQueue.data.address_components, function(data) {
+      console.log("firstQueue.refinance_api");
+      console.log(firstQueue.refinance_api);
+      if(firstQueue.refinance_api == true) {
+          refinanceApiResult.set(firstKey, firstQueue);
+          console.log(refinanceApiResult);
+      }
       addressQueue.remove(firstKey);
       console.log("count after remove");
       console.log(addressQueue.count());
-      console.log("Facebook ID : " + firstQueue.facebook_id);
-      console.log("Zipcode ID : " + data.zipcode);
       res.status(200).json({
         "timestamp": firstKey,
         "address": data.address,
@@ -369,26 +417,89 @@ app.get('/get-address', function(req, res) {
 });
 
 app.post('/scape-address', function(req, res) {
-  // console.log("scape address");
+  console.log("START scape address");
   // console.log(req);
-  if (utils.isDefined(req.body.error) || !utils.isDefined(req.body.facebook_id) || req.body.status_code == 404) {
+  var sender = req.body.facebook_id;
+  console.log("timestamp :::: " + req.body.timestamp);
+
+  if (utils.isDefined(req.body.error) || req.body.status_code == 404) {
+    var refinance = refinanceApiResult.get(req.body.timestamp);
+    // console.log("refinance");
+    // console.log(refinance);
     console.log("error from ui path " + req.body.address);
-    fbServices.sendFBMessage(req.body.facebook_id, fbServices.textMessage(refinanceErr + " Error address: " +req.body.address));
-    return;
+    if(utils.isDefined(refinance) && refinance.refinance_api == true){
+      console.log("true refinance api");
+      refinance.result = "Have no result for this querry ! Please try again!";
+      return;
+    }else {
+      fbServices.sendFBMessage(sender, fbServices.textMessage(refinanceErr + " Error address: " +req.body.address));
+      return;
+    }
+
   } else {
-    console.log("receive scape address data");
-    console.log(req.body);
-    console.log("address after scape " + req.body.address);
+    var address = req.body.address;
+    // console.log("receive scape address data");
+    // console.log(req.body);
+    // console.log("address after scape " + address);
 
+    mcServices.getRefinance(req.body, function(err, res){
 
-    mcServices.getRefinance(req.body.facebook_id, req.body, function(err){
+      var data = res.speech;
+      var refinance = refinanceApiResult.get(req.body.timestamp);
+      // console.log("key req : " + req.body.timestamp);
+      // console.log("key res : " + data.timestamp);
+      // console.log('refinance map');
+      // console.log(refinanceApiResult);
+      // console.log(refinance);
+      // console.log(refinanceApiResult.get(req.body.timestamp));
+      // console.log(refinanceApiResult.get(req.body.timestamp).refinance_api);
+      // console.log(refinance.refinance_api);
+
       if(err){
         console.log(err);
-        fbServices.sendFBMessage(req.body.facebook_id, fbServices.textMessage("Rails Error Address "+req.body.address + " : "+ err.speech.data));
+        if(utils.isDefined(refinance) && refinance.refinance_api == true){
+          refinance.result = "Error when get refinance from Server!";
+          return;
+        }
+        fbServices.sendFBMessage(sender, fbServices.textMessage("Rails Error Address when get refinance :"+address));
         return;
+      }else {
+        console.log('Get refinance ok');
+        // console.log(res);
+
+        // console.log('Get refinance speech');
+
+        if(utils.isDefined(res) && utils.isDefined(data)) {
+          // console.log(data);
+          // console.log('Get refinance Sender');
+          // console.log(sender);
+
+          // var rates = JSON.parse(response.body.speech);
+          // console.log(rates);
+          if(utils.isDefined(refinance) && refinance.refinance_api == true){
+            refinance.result = data;
+            console.log("refinance.result");
+            console.log(refinance.result);
+            return;
+          }
+          if(data.status_code == 200 ){
+            // console.log(rates);
+
+            fbServices.sendFBMessage(sender, fbServices.textMessage("Address : " + data.address +  "Lower rate refinance : New interest rate" + data.lower_rate_refinance.new_interest_rate + " New monthly payment: " + data.lower_rate_refinance.new_monthly_payment ));
+            fbServices.sendFBMessage(sender, fbServices.textMessage("Saving 1 year : " + data.lower_rate_refinance.savings_1_year + " Saving 3 year: " + data.lower_rate_refinance.savings_3_years  + " Saving 10 year: " + data.lower_rate_refinance.savings_10_years ));
+            fbServices.sendFBMessage(sender, fbServices.textMessage("Cash out refinance : Current estimated value is " + data.cash_out_refinance.current_home_value + " and you can take " + data.cash_out_refinance.cash_out + " cash out at a low interest rate to invest in something else."));
+          }else {
+            // fbServices.sendFBMessage(sender, fbServices.textMessage("Have something wrong. Please try again! Error Address "));
+            fbServices.sendFBMessage(sender, fbServices.textMessage("Rails Error Address "+address + " : "+ data.data));
+            return;
+          }
+
+        }
+
       }
     });
   }
+  console.log("END scape address");
 });
 app.listen(REST_PORT, function() {
   console.log('Rest service ready on port ' + REST_PORT);
