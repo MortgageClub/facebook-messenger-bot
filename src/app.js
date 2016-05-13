@@ -340,8 +340,6 @@ app.post('/refinance', function(req, res){
           var refinance = refinanceApiResult.get(key);
           console.log("refinance ::::: " + refinance.data);
           if (refinance) {
-
-            
             res.json({result: refinance.result});
             return;
           }
